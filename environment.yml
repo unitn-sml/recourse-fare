@@ -2,16 +2,15 @@ name: rl_mcts
 channels:
   - defaults
 dependencies:
-    - python=3.9
+  - python=3.9
   - numpy
-  - torchaudio
-  - torchvision
-  - cpuonly
   - pytorch
   - pandas
   - pyyaml
   - mpi4py
   - colorama
+  - colorama
+  - tqdm
   - pip
   - pip:
-    - tensorboardX-2.6
+    - tensorboardX
