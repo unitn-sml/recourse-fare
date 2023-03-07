@@ -55,17 +55,13 @@ if __name__ == "__main__":
         config.get("environment").get("encoder").get("configuration_parameters").get("encoding_dim")
     )
 
-    indices_non_primary_programs = [p['index'] for _, p in programs_library.items() if p['level'] > 0]
-
     additional_arguments_from_env = env.get_additional_parameters()
 
     policy = import_dyn_class(config.get("policy").get("name"))(
         encoder,
         config.get("policy").get("hidden_size"),
-        num_programs, num_non_primary_programs,
-        config.get("policy").get("embedding_dim"),
+        num_programs,
         config.get("policy").get("encoding_dim"),
-        indices_non_primary_programs,
         **additional_arguments_from_env
     )
 
@@ -101,14 +97,11 @@ if __name__ == "__main__":
     results_filename=None
     if args.save:
         results_filename = config.get("validation").get("save_results_name")+date_time
-        #results_file = open(
-        #    os.path.join(config.get("validation").get("save_results"), results_filename), "w"
-        #)
 
     iterations = min(int(config.get("validation").get("iterations")), len(env.data))
     for iduser in tqdm(range(0, iterations), disable=args.to_stdout):
 
-        trace, root_node = mcts.sample_execution_trace()
+        trace, root_node, _ = mcts.sample_execution_trace()
 
         if trace.rewards[0] > 0:
             cost, length = get_cost_from_tree(env, root_node)
@@ -136,10 +129,6 @@ if __name__ == "__main__":
     mcts_length_std = np.std(mcts_length)
 
     complete = f"{mcts_rewards_normalized_mean},{1-mcts_rewards_normalized_mean},{mcts_cost_mean},{mcts_cost_std},{mcts_length_mean},{mcts_length_std}"
-
-    #print(f"correct,wrong,mean_cost,std_cost,mean_length,std_length")
-    #print("Complete:", complete)
-    #print("Failures:", failures)
 
     # Custom metric string
     cst_complete = ""
