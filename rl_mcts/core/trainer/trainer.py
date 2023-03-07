@@ -18,20 +18,22 @@ class Trainer:
 
         validation_rewards = []
         costs = []
+        lengths = []
         for _ in range(self.num_validation_episodes):
 
             mcts = self.validation_mcts_class(env, self.policy, task_index, exploration=False,
                                               number_of_simulations=5)
 
             # Sample an execution trace with mcts using policy as a prior
-            trace, root_node = mcts.sample_execution_trace()
+            trace, root_node, _ = mcts.sample_execution_trace()
             task_reward = trace.task_reward
 
-            cost, length = get_cost_from_tree(env, root_node)
+            cost, _ = get_cost_from_tree(env, root_node)
             costs.append(cost)
+            lengths.append(len(trace.previous_actions[1:]))
 
             validation_rewards.append(task_reward)
-        return validation_rewards, np.mean(costs)
+        return validation_rewards, np.mean(costs), np.mean(lengths)
 
     def train_one_step(self, traces):
 

@@ -1,7 +1,7 @@
 from rl_mcts.core.buffer.trace_buffer import PrioritizedReplayBuffer
 from rl_mcts.core.trainer.trainer import Trainer
 from rl_mcts.core.trainer.trainer_statistics import MovingAverageStatistics
-from rl_mcts.core.utils.functions import import_dyn_class
+from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_tree
 
 import torch
 import numpy as np
@@ -140,6 +140,7 @@ if __name__ == "__main__":
         act_loss_total = []
         crit_loss_total = []
         args_loss_total = []
+        total_node_expanded = []
 
         for episode in range(config.get("training").get("num_episodes_per_iteration")):
 
@@ -150,13 +151,14 @@ if __name__ == "__main__":
             if early_stopping_reached:
                 break
 
-            traces, _ = mcts.sample_execution_trace()
+            traces, root_node, node_expanded = mcts.sample_execution_trace()
 
             if not args.single_core:
                 traces = comm.gather(traces, root=0)
+                node_expanded = comm.gather(node_expanded, root=0)
             else:
                 traces = [traces]
-
+                node_expanded = [node_expanded]
             if rank == 0:
 
                 act_loss, crit_loss, args_loss = trainer.train_one_step(traces)
@@ -164,44 +166,49 @@ if __name__ == "__main__":
                 act_loss_total.append(act_loss)
                 crit_loss_total.append(crit_loss)
                 args_loss_total.append(args_loss)
-
-                v_task_name = env.get_program_from_index(task_index)
-                writer.add_scalar("loss/" + v_task_name + "/actor", np.mean(act_loss_total), iteration)
-                writer.add_scalar("loss/" + v_task_name + "/value", np.mean(crit_loss_total), iteration)
-                writer.add_scalar("loss/" + v_task_name + "/arguments", np.mean(args_loss_total), iteration)
+                total_node_expanded += node_expanded
 
         if rank == 0:
-            
-            # Get id of the current 
-            idx = statistics.get_task_index()
 
+            # Get id of the current 
+            task_index = statistics.get_task_index()
+
+            v_task_name = env.get_program_from_index(task_index)
+            writer.add_scalar("loss/" + v_task_name + "/actor", np.mean(act_loss_total), iteration)
+            writer.add_scalar("loss/" + v_task_name + "/value", np.mean(crit_loss_total), iteration)
+            writer.add_scalar("loss/" + v_task_name + "/arguments", np.mean(args_loss_total), iteration)
+
+            writer.add_scalar("mcts/" + v_task_name + "/avg_node_expanded", np.mean(total_node_expanded), iteration)
+            
             # Print on tensorboard additionals metrics if there are
             for k in env.custom_tensorboard_metrics:
-                writer.add_scalar("custom/" + env.get_program_from_index(task_index) + f"/{k}", env.custom_tensorboard_metrics.get(k), iteration)
+                writer.add_scalar("custom/" + v_task_name + f"/{k}", env.custom_tensorboard_metrics.get(k), iteration)
 
-            task_level = env.get_program_level_from_index(idx)
+            task_level = env.get_program_level_from_index(task_index)
 
             # Enable validation mode (no sampling from failed states, just random)
             env.validation = True
 
             mcts = MCTS_CLASS(
-                env, policy, idx,
+                env, policy, task_index,
                 **config.get("training").get("mcts").get("configuration_parameters")
             )
 
-            validation_rewards, validation_cost = trainer.perform_validation_step(env, idx)
+            validation_rewards, validation_cost, validation_length = trainer.perform_validation_step(env, task_index)
             statistics.update_statistics(validation_rewards)
 
-            early_stopping(validation_cost, statistics.get_statistic(idx), policy)
+            early_stopping(validation_cost, statistics.get_statistic(task_index), policy)
             if early_stopping.early_stop:
                 early_stopping_reached = True
 
             # Disable validation mode (no sampling from failed states, just random)
             env.validation = False
 
-            v_task_name = env.get_program_from_index(idx)
+            v_task_name = env.get_program_from_index(task_index)
             # record on tensorboard
-            writer.add_scalar('validation/' + v_task_name, statistics.get_statistic(idx), iteration)
+            writer.add_scalar('validation/' + v_task_name + '/avg_validity', statistics.get_statistic(task_index), iteration)
+            writer.add_scalar('validation/' + v_task_name + '/avg_cost', validation_cost, iteration)
+            writer.add_scalar('validation/' + v_task_name + '/avg_length', validation_length, iteration)
 
             print(f"[*] Iteration {iteration+1} / Buffer Size: {buffer.get_total_successful_traces()} / {statistics.print_statistics(string_out=True)}")
 

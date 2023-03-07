@@ -156,6 +156,7 @@ class MCTS:
         failed_simulation = False
         value = None
         program_level = self.env.get_program_level_from_index(node.program_index)
+        total_node_expanded = 0
 
         while not stop and not max_depth_reached and not has_expanded_a_node and self.clean_sub_executions and not max_recursion_reached:
 
@@ -163,7 +164,9 @@ class MCTS:
                 max_depth_reached = True
 
             elif len(node.childs) == 0:
-                _, value, state_h, state_c, new_childs_added = self._expand_node(node)
+                _, value, _, _, new_childs_added = self._expand_node(node)
+                
+                total_node_expanded += new_childs_added
 
                 has_expanded_a_node = True
 
@@ -194,14 +197,14 @@ class MCTS:
                     node.observation = observation.clone()
                     node.env_state = self.env.get_state().copy()
 
-        return max_depth_reached, has_expanded_a_node, node, value, failed_simulation
+        return max_depth_reached, has_expanded_a_node, node, value, failed_simulation, total_node_expanded
 
     def _play_episode(self, root_node: MCTSNode):
         stop = False
         max_depth_reached = False
         illegal_action = False
 
-        selected_nodes_count = 0
+        total_node_expanded_simulation = 0
 
         while not stop and not max_depth_reached and not illegal_action and self.clean_sub_executions:
 
@@ -223,14 +226,14 @@ class MCTS:
                 self.program_arguments.append(root_node.args)
                 self.rewards.append(None)
 
-                total_node_expanded_simulation = 0
-
                 # Spend some time expanding the tree from your current root node
                 for _ in range(self.number_of_simulations):
                     # run a simulation
                     self.recursive_call = False
-                    simulation_max_depth_reached, has_expanded_node, node, value, failed_simulation = self._simulate(
+                    simulation_max_depth_reached, has_expanded_node, node, value, failed_simulation, node_expanded = self._simulate(
                         root_node)
+
+                    total_node_expanded_simulation += node_expanded
 
                     # get reward
                     if failed_simulation:
@@ -290,8 +293,6 @@ class MCTS:
                 else:
                     root_node = root_node[0]
 
-                selected_nodes_count += 1
-
                 # Record mcts policy
                 self.mcts_policies.append(torch.cat([mcts_policy, args_policy], dim=1))
 
@@ -302,7 +303,7 @@ class MCTS:
                     else:
                         self.env.reset_to_state(root_node.env_state.copy())
 
-        return root_node, max_depth_reached, illegal_action, selected_nodes_count
+        return root_node, max_depth_reached, illegal_action, total_node_expanded_simulation
 
 
     def sample_execution_trace(self) -> Union[ExecutionTrace, MCTSNode]:
@@ -330,7 +331,7 @@ class MCTS:
 
         self.root_node = root
 
-        final_node, max_depth_reached, illegal_action, selected_nodes_count = self._play_episode(root)
+        final_node, max_depth_reached, illegal_action, total_node_expanded = self._play_episode(root)
 
         if not illegal_action:
             final_node.selected = True
@@ -351,7 +352,7 @@ class MCTS:
 
         # Generate execution trace
         return ExecutionTrace(self.lstm_states, self.lstm_args_states, self.programs_index, self.observations, self.previous_actions, task_reward,
-                              self.program_arguments, self.rewards, self.mcts_policies, self.clean_sub_executions), self.root_node
+                              self.program_arguments, self.rewards, self.mcts_policies, self.clean_sub_executions), self.root_node, total_node_expanded
 
     def _estimate_q_val(self, node):
 
@@ -379,14 +380,13 @@ class MCTS:
                     action_level_closeness = self.level_closeness_coeff * np.exp(-1)
                 elif action_prog_lvl == 0:
                     action_level_closeness = self.level_closeness_coeff * np.exp(-self.level_0_penalty)
-                elif action_prog_lvl > 0:
-                    action_level_closeness = self.level_closeness_coeff * np.exp(-(parent_prog_lvl - action_prog_lvl))
                 else:
                     # special treatment for STOP action
                     action_level_closeness = self.level_closeness_coeff * np.exp(-1)
 
                 q_val_action += action_level_closeness
-
+                
+                # Add a penalty based on the children cost
                 q_val_action += self.action_cost_coeff * np.exp(-self.env.get_cost(child.program_from_parent_index, child.args_index))
 
                 if child.program_from_parent_index in repeated_actions:
