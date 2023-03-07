@@ -1,4 +1,4 @@
-from rl_mcts.utils.functions import import_dyn_class, get_cost_from_env
+from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_env
 
 import numpy as np
 import pandas as pd
@@ -109,70 +109,12 @@ def validation_recursive_tree(model, env, action, depth, cost, action_list, rule
             return [[True, env.memory.copy(), cost, action_list, rules]]
 
 
-def validation_recursive(env, action, depth, alpha=0.65):
-
-    if action == "STOP(0)":
-        return [[True, env.memory.copy()]]
-    elif depth < 0:
-        return [[False, env.memory.copy()]]
-    else:
-
-        observation = env.memory.copy()
-        node_name = action.split("(")[0]
-        actions = model.get(node_name)
-
-        total = []
-
-        found = False
-        action_boolean = []
-        for a, conditions in actions.items():
-            results = []
-            real_result = []
-
-            parsed_observation = {c: v for c, v in zip(env.parsed_columns, env.parse_observation(observation))}
-
-            for c in conditions:
-                tmp = [f(parsed_observation) for f in c]
-                results += tmp
-                real_result.append(all(tmp))
-
-            # Get how many booleans has it satisfied
-            action_boolean.append((a, sum(results)/len(results), any(real_result)))
-
-        action_boolean.sort(key=lambda x: x[1], reverse=True)
-
-        for next_op, rel_bool, true_bool in action_boolean:
-
-            if true_bool or rel_bool >= alpha:
-
-                found = True
-                previous_env = env.memory.copy()
-
-                if next_op != "STOP(0)":
-                    action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
-                    if args.isnumeric():
-                        args = int(args)
-                    env.act(action_name, args)
-
-                total += validation_recursive(env, next_op, depth-1, alpha)
-
-                env.memory = previous_env
-
-        if not found:
-            return [[False, env.memory.copy()]]
-        else:
-            return total
-
-
 if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("model", type=str, help="Path to the automa model we want to validate.")
-    parser.add_argument("task", type=str, help="Task we want to execute")
     parser.add_argument("--config", type=str, help="Path to the file with the experiment configuration")
-    parser.add_argument("--alpha", type=float, default=0.65, help="Percentage of successful rules satisfied")
     parser.add_argument("--single-core", default=True, action="store_false", help="Run everything with a single core.")
-    parser.add_argument("--tree", default=False, action="store_true", help="Replace solver with decision tree")
     parser.add_argument("--save", default=False, action="store_true", help="Save result to file")
     parser.add_argument("--to-stdout", default=False, action="store_true", help="Print results to stdout")
 
@@ -230,7 +172,7 @@ if __name__ == "__main__":
 
         additional_arguments_from_env = env.get_additional_parameters()
 
-        idx = env.prog_to_idx[args.task]
+        idx = env.prog_to_idx["INTERVENE"]
         failures = 0
 
         ts = time.localtime(time.time())
@@ -264,7 +206,7 @@ if __name__ == "__main__":
         if not args.single_core:
             env = comm.bcast(env, root=0)
 
-        idx = env.prog_to_idx[args.task]
+        idx = env.prog_to_idx["INTERVENE"]
 
         _, state_index = env.start_task(idx)
 
@@ -272,10 +214,7 @@ if __name__ == "__main__":
 
         next_action = "INTERVENE(0)"
 
-        if args.tree:
-            results = validation_recursive_tree(model, env, next_action, max_depth, 0, [], [])
-        else:
-            results = validation_recursive(env, next_action, max_depth, args.alpha)
+        results = validation_recursive_tree(model, env, next_action, max_depth, 0, [], [])
 
         if not args.single_core:
             results = comm.gather(results, root=0)
@@ -313,11 +252,6 @@ if __name__ == "__main__":
 
         t = pd.DataFrame(traces, columns=["id", "program", "argument", "rule"])
 
-        #print("Correct:", reward)
-        #print("Failures:", iterations-reward)
-        #print("Mean/std cost: ", sum(costs)/len(costs), np.std(costs))
-        #print("Mean/std length actions: ", sum(length_actions) / len(length_actions), np.std(length_actions))
-
         # Fix if they are empty
         costs = costs if costs else [0]
         length_actions = length_actions if length_actions else [0]
@@ -326,16 +260,6 @@ if __name__ == "__main__":
             print(f"{method},{dataset},{np.mean(reward)},{1 - np.mean(reward)},{np.mean(costs)},{np.std(costs)},{np.mean(length_actions)},{np.std(length_actions)},0.0,0.0,{np.mean(length_rules)},{np.std(length_rules)}")
 
         if args.save:
-            #results_file.write(f"method,dataset,correct,wrong,mean_cost,std_cost,mean_length,std_length" + '\n')
-            #results_file.write(f"{method},{dataset},{reward}, {1-np.mean(reward)}, {sum(costs)/len(costs)},{np.std(costs)},{sum(length_actions) / len(length_actions)},{np.std(length_actions)}" + '\n')
-            #results_file.close()
-
-            # Save sequences to file
-            #df_sequences = []
-            #for k, x in enumerate(traces):
-            #    for p, a in x:
-            #        df_sequences.append([k, env.get_program_from_index(p), a])
-
             # Create a dataframe and save sequences to disk
             if traces:
                 best_sequences = pd.DataFrame(traces, columns=["id", "program", "arguments", "rule"])
