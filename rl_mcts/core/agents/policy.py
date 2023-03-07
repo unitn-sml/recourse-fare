@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn import Linear, LSTMCell, Module, Embedding
+from torch.nn import Linear, LSTMCell, Module
 from torch.nn.init import uniform_
 import torch.nn.functional as F
 import numpy as np
@@ -85,8 +85,8 @@ class ArgumentsSingleNet(Module):
 
 
 class Policy(Module):
-    def __init__(self, encoder, hidden_size, num_programs, num_non_primary_programs, embedding_dim, encoding_dim,
-                 indices_non_primary_programs, programs_types, types, learning_rate=1e-3, use_args=True, use_gpu=False):
+    def __init__(self, encoder, hidden_size, num_programs, encoding_dim,
+                types, learning_rate=1e-3, use_args=True, use_gpu=False):
 
         super().__init__()
 
@@ -96,19 +96,15 @@ class Policy(Module):
 
         self._hidden_size = hidden_size
         self.num_programs = num_programs
-        self.programs_types = programs_types
         self.types = types
-        self.num_non_primary_programs = num_non_primary_programs
 
-        self.embedding_dim = embedding_dim
         self.encoding_dim = encoding_dim
 
         # Initialize networks
-        self.Mprog = Embedding(num_non_primary_programs, embedding_dim).to(self.device)
         self.encoder = encoder.to(self.device)
 
-        self.lstm = LSTMCell(self.encoding_dim + self.embedding_dim, self._hidden_size).to(self.device)
-        self.lstm_args = LSTMCell(self.encoding_dim + self.embedding_dim, self._hidden_size).to(self.device)
+        self.lstm = LSTMCell(self.encoding_dim, self._hidden_size).to(self.device)
+        self.lstm_args = LSTMCell(self.encoding_dim, self._hidden_size).to(self.device)
         self.critic = CriticNet(self._hidden_size).to(self.device)
         self.actor = ActorNet(self._hidden_size, self.num_programs).to(self.device)
 
@@ -124,9 +120,6 @@ class Policy(Module):
 
         # Small epsilon used to preven torch.log() to produce nan
         self.epsilon = np.finfo(np.float32).eps
-
-        # Compute relative indices of non primary programs (to deal with task indices)
-        self.relative_indices = dict((prog_idx, relat_idx) for relat_idx, prog_idx in enumerate(indices_non_primary_programs))
 
     def init_networks(self):
 
@@ -155,7 +148,7 @@ class Policy(Module):
         '''
         self.optimizer = torch.optim.Adam(self.parameters(), lr=lr)
 
-    def predict_on_batch(self, e_t, i_t, h_t, c_t, h_t_args, c_t_args):
+    def predict_on_batch(self, e_t, h_t, c_t, h_t_args, c_t_args):
         """Run one NPI inference.
         Args:
           e_t: batch of environment observation
@@ -165,14 +158,11 @@ class Policy(Module):
         Returns:
           probabilities over programs, value, new hidden state, new cell state
         """
-        batch_size = len(i_t)
+        batch_size = len(h_t)
         s_t = self.encoder(e_t.view(batch_size, -1))
-        relative_prog_indices = [self.relative_indices[idx] for idx in i_t]
-        p_t = self.Mprog(torch.LongTensor(relative_prog_indices).to(self.device)).view(batch_size, -1)
 
-        new_h, new_c = self.lstm(torch.cat([s_t, p_t], -1), (h_t, c_t))
-
-        new_h_args, new_c_args = self.lstm_args(torch.cat([s_t, p_t], -1), (h_t_args, c_t_args))
+        new_h, new_c = self.lstm(s_t, (h_t, c_t))
+        new_h_args, new_c_args = self.lstm_args(s_t, (h_t_args, c_t_args))
 
         actor_out = self.actor(new_h)
         critic_out = self.critic(new_h)
@@ -189,7 +179,6 @@ class Policy(Module):
           policy loss, value loss, total loss combining policy and value losses
         """
         e_t = torch.FloatTensor(np.stack(batch[0]))
-        i_t = batch[1]
         lstm_states = batch[2]
         lstm_states_args = batch[6]
         h_t, c_t = zip(*lstm_states)
@@ -205,7 +194,7 @@ class Policy(Module):
         with BetterAnomalyDetection(check_autograd):
 
             self.optimizer.zero_grad()
-            policy_predictions, value_predictions, args_predictions, _, _, _, _ = self.predict_on_batch(e_t, i_t, h_t, c_t, h_t_args, c_t_args)
+            policy_predictions, value_predictions, args_predictions, _, _, _, _ = self.predict_on_batch(e_t, h_t, c_t, h_t_args, c_t_args)
 
             policy_loss = -torch.mean(
                 policy_labels[:, 0:self.num_programs] * torch.log(policy_predictions + self.epsilon), dim=-1
@@ -224,11 +213,10 @@ class Policy(Module):
 
         return policy_loss.item(), value_loss.item(), args_loss.item(), total_loss.item()
 
-    def forward_once(self, e_t, i_t, h, c, h_args, c_args):
+    def forward_once(self, e_t, h, c, h_args, c_args):
         """Run one NPI inference using predict.
         Args:
           e_t: current environment observation
-          i_t: current program calling
           h: previous lstm hidden state
           c: previous lstm cell state
         Returns:
@@ -239,7 +227,7 @@ class Policy(Module):
         e_t, h, c, h_args, c_args = e_t.view(1, -1), h.view(1, -1), c.view(1, -1), h_args.view(1, -1), c_args.view(1, -1)
         with torch.no_grad():
             e_t = e_t.to(self.device)
-            actor_out, critic_out, args_out, new_h, new_c, new_h_args, new_c_args = self.predict_on_batch(e_t, [i_t], h, c, h_args, c_args)
+            actor_out, critic_out, args_out, new_h, new_c, new_h_args, new_c_args = self.predict_on_batch(e_t, h, c, h_args, c_args)
         return actor_out, critic_out, args_out, new_h, new_c, new_h_args, new_c_args
 
     def init_tensors(self):

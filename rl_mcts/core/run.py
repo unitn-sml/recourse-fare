@@ -88,17 +88,13 @@ if __name__ == "__main__":
             config.get("environment").get("encoder").get("configuration_parameters").get("encoding_dim")
         )
 
-        indices_non_primary_programs = [p['index'] for _, p in programs_library.items() if p['level'] > 0]
-
         additional_arguments_from_env = env.get_additional_parameters()
 
         policy = import_dyn_class(config.get("policy").get("name"))(
             encoder,
             config.get("policy").get("hidden_size"),
-            num_programs, num_non_primary_programs,
-            config.get("policy").get("embedding_dim"),
+            num_programs,
             config.get("policy").get("encoding_dim"),
-            indices_non_primary_programs,
             **additional_arguments_from_env
         )
 

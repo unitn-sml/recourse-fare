@@ -45,7 +45,7 @@ class MCTSNode(ABC):
             "prior": None,
             "program_index": task_index,
             "program_from_parent_index": None,
-            "observation": init_observation.copy(),
+            "observation": init_observation.clone(),
             "env_state": env_state.copy(),
             "h_lstm": h.clone(),
             "c_lstm": c.clone(),

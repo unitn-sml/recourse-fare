@@ -75,7 +75,7 @@ class MCTS:
         )
 
         with torch.no_grad():
-            priors, value, new_args, new_h, new_c, new_h_args, new_c_args = self.policy.forward_once(observation, program_index, h, c, h_args, c_args)
+            priors, value, new_args, new_h, new_c, new_h_args, new_c_args = self.policy.forward_once(observation, h, c, h_args, c_args)
 
             priors = torch.squeeze(priors)
             priors = priors.cpu().numpy()
@@ -125,7 +125,7 @@ class MCTS:
                         "prior": float(prog_proba * args_proba),
                         "program_from_parent_index": prog_index,
                         "program_index": program_index,
-                        "observation": observation.copy(),
+                        "observation": observation.clone(),
                         "env_state": env_state.copy(),
                         "h_lstm": new_h.clone(),
                         "c_lstm": new_c.clone(),
@@ -191,7 +191,7 @@ class MCTS:
 
                 elif self.env.get_program_level(program_to_call) == 0:
                     observation = self.env.act(program_to_call, arguments)
-                    node.observation = observation.copy()
+                    node.observation = observation.clone()
                     node.env_state = self.env.get_state().copy()
 
         return max_depth_reached, has_expanded_a_node, node, value, failed_simulation
@@ -218,7 +218,7 @@ class MCTS:
                 self.lstm_states.append((root_node.h_lstm, root_node.c_lstm))
                 self.lstm_args_states.append((root_node.h_lstm_args, root_node.c_lstm_args))
                 self.programs_index.append(root_node.program_index)
-                self.observations.append(root_node.observation.copy())
+                self.observations.append(root_node.observation.clone())
                 self.previous_actions.append(root_node.program_from_parent_index)
                 self.program_arguments.append(root_node.args)
                 self.rewards.append(None)
