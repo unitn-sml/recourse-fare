@@ -11,6 +11,7 @@ git clone https://github.com/unitn-sml/rl-mcts.git
 cd rl-mcts
 conda env create -f environment.yml
 conda activate rl_mcts
+pip install .
 ```
 
 Then, we can either install the library in our system or we can include it as a "third-party" directory in our project and user it directly from there. 
@@ -19,4 +20,4 @@ We use the library in the following projects:
 
 [1] De Toni, Giovanni, Bruno Lepri, and Andrea Passerini. "Synthesizing explainable counterfactual policies for algorithmic recourse with program synthesis." Machine Learning (2023): 1-21.
 
-[2] De Toni, Giovanni, et al. "Generating personalized counterfactual interventions for algorithmic recourse by eliciting user preferences." arXiv preprint arXiv:2205.13743 (2022).
+[2] De Toni, Giovanni, et al. "User-Aware Algorithmic Recourse with Preference Elicitation." arXiv preprint arXiv:2205.13743 (2022).
