@@ -14,6 +14,7 @@ class Environment(ABC):
         self.prog_to_func = prog_to_func
         self.prog_to_precondition = prog_to_precondition
         self.prog_to_postcondition = prog_to_postcondition
+        self.prog_to_cost = prog_to_cost
         self.programs_library = programs_library
 
         self.programs = list(self.programs_library.keys())
@@ -33,8 +34,6 @@ class Environment(ABC):
 
         self.arguments = arguments
         self.complete_arguments = complete_arguments
-
-        self.prog_to_cost = prog_to_cost
 
         self.failed_execution_envs = {
             k: [] for k in self.programs_library
