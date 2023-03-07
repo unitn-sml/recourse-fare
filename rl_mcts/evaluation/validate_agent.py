@@ -17,11 +17,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("model", type=str, help="Path to the automa model we want to validate.")
-    parser.add_argument("task", type=str, help="Task we want to execute")
     parser.add_argument("--config", type=str, help="Path to the file with the experiment configuration")
-    parser.add_argument("--alpha", type=float, default=0.65, help="Percentage of successful rules satisfied")
-    parser.add_argument("--single-core", default=True, action="store_false", help="Run everything with a single core.")
-    parser.add_argument("--tree", default=False, action="store_true", help="Replace solver with decision tree")
     parser.add_argument("--save", default=False, action="store_true", help="Save result to file")
     parser.add_argument("--to-stdout", default=False, action="store_true", help="Print results to stdout")
 
@@ -48,32 +44,25 @@ if __name__ == "__main__":
     observation_dim = env.get_obs_dimension()
     programs_library = env.programs_library
 
-    idx_tasks = [prog['index'] for key, prog in env.programs_library.items() if prog['level'] > 0]
-
     # Set up the encoder needed for the environment
     encoder = import_dyn_class(config.get("environment").get("encoder").get("name"))(
         env.get_obs_dimension(),
         config.get("environment").get("encoder").get("configuration_parameters").get("encoding_dim")
     )
 
-    indices_non_primary_programs = [p['index'] for _, p in programs_library.items() if p['level'] > 0]
-
     additional_arguments_from_env = env.get_additional_parameters()
 
     policy = import_dyn_class(config.get("policy").get("name"))(
         encoder,
         config.get("policy").get("hidden_size"),
-        num_programs, num_non_primary_programs,
-        config.get("policy").get("embedding_dim"),
+        num_programs,
         config.get("policy").get("encoding_dim"),
-        indices_non_primary_programs,
         **additional_arguments_from_env
     )
 
     policy.load_state_dict(torch.load(args.model))
 
-
-    idx = env.prog_to_idx[args.task]
+    idx = env.prog_to_idx["INTERVENE"]
     failures = 0
 
     ts = time.localtime(time.time())
@@ -97,7 +86,7 @@ if __name__ == "__main__":
 
     for _ in tqdm(range(0, iterations), disable=args.to_stdout):
 
-        idx = env.prog_to_idx[args.task]
+        idx = env.prog_to_idx["INTERVENE"]
 
         network_only = PolicyOnly(policy, env, env.max_depth_dict)
         netonly_reward, trace_used, cost = network_only.play(idx)

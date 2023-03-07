@@ -26,7 +26,7 @@ class PolicyOnly:
         while self.clean_sub_executions and depth <= max_depth and not wrong_program:
 
             # Compute priors
-            priors, value, arguments, tate_h, state_c, state_h_args, state_c_args = self.policy.forward_once(observation, task_index, state_h, state_c, state_h_args, state_c_args)
+            priors, _, arguments, state_h, state_c, state_h_args, state_c_args = self.policy.forward_once(observation, state_h, state_c, state_h_args, state_c_args)
 
             # Choose action according to argmax over priors
             program_index = torch.argmax(priors).item()
