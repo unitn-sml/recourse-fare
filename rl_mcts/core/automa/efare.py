@@ -8,7 +8,7 @@ import numpy as np
 def make_closure(action):
     return lambda x=None: action
 
-class VisualizeAutoma:
+class EFARE:
 
     def __init__(self, env, operation="INTERVENE", seed=2021):
         self.env = env
@@ -118,7 +118,6 @@ class VisualizeAutoma:
             df.drop_duplicates(inplace=True)
             # Remove inconsistencies
             df = df[df.groupby(columns)["operation"].transform('nunique') == 1]
-            df.to_csv(f"{k}.csv", index=None)
 
             # Stop will be empty, so we do not process
             if k == "STOP":
@@ -126,7 +125,7 @@ class VisualizeAutoma:
 
             if len(df["operation"].unique()) > 1:
                 print(f"[*] Getting rules for node {k}")
-                self._compute_tree(f"{k}.csv", k)
+                self._compute_tree(df, k)
             else:
                 print(f"[*] Add single rule for node {k}")
                 self.graph[k]["arcs"][df["operation"].unique()[0]] = {'True'}
@@ -135,11 +134,9 @@ class VisualizeAutoma:
                 # the correct action
                 self.automa[k] = make_closure(df["operation"].unique()[0])
 
-    def _compute_tree(self, filename, node_name):
+    def _compute_tree(self, df, node_name):
 
         from sklearn import tree
-
-        df = pd.read_csv(filename)
 
         Y = df["operation"]
         df.drop(columns=["operation"], inplace=True)
@@ -157,76 +154,3 @@ class VisualizeAutoma:
         clf = clf.fit(df.values, Y.values)
 
         self.automa[node_name] = clf
-
-    def _parse_rule(self, rule):
-
-        body, operation = rule.replace("'", "").replace(": ", "=").split("=>")
-        body = " \\n ".join([k.strip() for k in body.split(",")])
-        operation = operation.replace("operation=", "").strip()
-
-        return body, operation
-
-    def _convert_bool(self, value):
-        if value in ["True", "False"]:
-            return value == "True"
-        else:
-            return value
-
-    def _convert_rule_into_lambda(self, rule):
-
-        body, operation = rule.replace("'", "").split("=>")
-
-        rule_set = []
-
-        rules = body.split(",")
-        for r in rules:
-            negation = "not" in r
-            value = r.split(":")[1].strip()
-            feature = r.split(":")[0].replace("not", "").strip()
-
-            value = self._convert_bool(value)
-
-            if negation:
-                rule_set.append(lambda x: not (x[feature] == value))
-            else:
-                rule_set.append(lambda x: x[feature] == value)
-
-        return rule_set
-
-    def _convert_to_dot(self, color="black", dot_file_name=None):
-
-        dot_file_name = "test.dot" if not dot_file_name else dot_file_name
-
-        self.file = open(dot_file_name, 'w')
-        self.file.write('digraph g{ \n')
-
-        for node, childs in self.graph.items():
-
-            self.file.write("\t" + str(node) + '\n')
-
-            for child, rules in childs["arcs"].items():
-
-                parsed_rules = " \\n ".join([f"({r})" for r in rules])
-
-                child_name = child.split("(")[0]
-
-                node_rule_name = "\t" + str(child.replace("(", "_").replace(")", "_").replace("/", "_")) + "_" + str(node) + "\t"
-
-                action_rules = node_rule_name
-                action_rules += '[ shape=box,'
-                if color is not None:
-                    action_rules += 'color={}, '.format(color)
-                action_rules += 'label=\"{}\"'.format(
-                    parsed_rules + "\\n " + child)
-                action_rules += '];'
-
-                self.file.write("\t" + action_rules + '\n')
-
-                # Print edge
-                res = '{} -> {}'.format(node_rule_name, str(child_name))
-                self.file.write("\t" + res + '\n')
-                res = '{} -> {} '.format(str(node), node_rule_name)
-                self.file.write("\t" + res + '\n')
-
-        self.file.write('}')
-        self.file.close()
