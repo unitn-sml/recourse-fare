@@ -20,11 +20,13 @@ class MovingAverageStatistics():
 
         return self.task_index
 
-    def print_statistics(self):
+    def print_statistics(self, string_out=False):
         '''
         Print current learning statistics (in terms of rewards).
         '''
-        res = '(Task, Reward): %s ==> %.3f '% (self.task_name, self.task_average_reward)
+        res = '%s: %.3f '% (self.task_name, self.task_average_reward)
+        if string_out:
+            return res
         print(res)
 
     def get_statistic(self, task_index):

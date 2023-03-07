@@ -170,8 +170,6 @@ if __name__ == "__main__":
                 writer.add_scalar("loss/" + v_task_name + "/value", np.mean(crit_loss_total), iteration)
                 writer.add_scalar("loss/" + v_task_name + "/arguments", np.mean(args_loss_total), iteration)
 
-                print(f"Done {episode}/{config.get('training').get('num_episodes_per_iteration')}! s:{buffer.get_total_successful_traces()}, f:{buffer.get_total_failed_traces()}")
-
         if rank == 0:
             
             # Get id of the current 
@@ -193,7 +191,6 @@ if __name__ == "__main__":
 
             validation_rewards, validation_cost = trainer.perform_validation_step(env, idx)
             statistics.update_statistics(validation_rewards)
-            statistics.print_statistics()
 
             early_stopping(validation_cost, statistics.get_statistic(idx), policy)
             if early_stopping.early_stop:
@@ -202,14 +199,11 @@ if __name__ == "__main__":
             # Disable validation mode (no sampling from failed states, just random)
             env.validation = False
 
-            print('')
-            print('')
-
             v_task_name = env.get_program_from_index(idx)
             # record on tensorboard
             writer.add_scalar('validation/' + v_task_name, statistics.get_statistic(idx), iteration)
 
-            print(f"[**] Done with iteration {iteration}")
+            print(f"[*] Iteration {iteration+1} / Buffer Size: {buffer.get_total_successful_traces()} / {statistics.print_statistics(string_out=True)}")
 
             # Save policy
             # We save the model only when we reach a satisfactory accuracy
