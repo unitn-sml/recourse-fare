@@ -47,8 +47,6 @@ if __name__ == "__main__":
     observation_dim = env.get_obs_dimension()
     programs_library = env.programs_library
 
-    idx_tasks = [prog['index'] for key, prog in env.programs_library.items() if prog['level'] > 0]
-
     # Set up the encoder needed for the environment
     encoder = import_dyn_class(config.get("environment").get("encoder").get("name"))(
         env.get_obs_dimension(),
