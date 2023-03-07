@@ -105,7 +105,6 @@ def validation_recursive_tree(model, env, action, depth, cost, action_list, rule
 
             cost += get_cost_from_env(env, action_name, str(args))
 
-            #action_list.append(("STOP", "0"))
             return [[True, env.memory.copy(), cost, action_list, rules]]
 
 
