@@ -51,13 +51,9 @@ class PolicyOnly:
             # Apply action
             if program_name == "STOP":
                 break
-            elif self.env.programs_library[program_name]['level'] == 0:
-                observation = self.env.act(program_name, arguments_list)
             else:
-                r, _, _ = self.play(task_index=program_index)
-                if r < 1.0:
-                    self.clean_sub_executions = False
-                observation = self.env.get_observation()
+                assert self.env.programs_library[program_name]['level'] == 0
+                observation = self.env.act(program_name, arguments_list)                
 
         # Get final reward and end task
         if depth <= max_depth and not wrong_program:
