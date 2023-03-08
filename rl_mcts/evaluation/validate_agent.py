@@ -1,5 +1,6 @@
 from rl_mcts.core.utils.functions import import_dyn_class
 from rl_mcts.core.agents.policy_only_agent import PolicyOnly
+from rl_mcts.core.data_loader import DataLoader
 
 import numpy as np
 import pandas as pd
@@ -31,9 +32,13 @@ if __name__ == "__main__":
     length_actions = None
     results_filename = None
 
+    dataloader = DataLoader(**config.get("validation").get("dataloader").get("configuration_parameters", {}))
+    f,w = dataloader.get_example()
+
     env = import_dyn_class(config.get("environment").get("name"))(
+        f,w,
         **config.get("environment").get("configuration_parameters", {}),
-        **config.get("validation").get("environment").get("configuration_parameters", {})
+        **config.get("validation").get("environment", {}).get("configuration_parameters", {})
     )
 
     method = "agent_only"
@@ -69,9 +74,6 @@ if __name__ == "__main__":
 
     if args.save:
         results_filename = config.get("validation").get("save_results_name") + date_time
-        # results_file = open(
-        #    os.path.join(config.get("validation").get("save_results"), results_filename), "w"
-        # )
 
     # perform validation, not training
     env.validation = True
@@ -81,11 +83,18 @@ if __name__ == "__main__":
     total_actions = []
     length_actions = []
 
-    iterations = min(int(config.get("validation").get("iterations")), len(env.data))
+    iterations = min(int(config.get("validation").get("iterations")), len(dataloader.data))
 
-    for _ in tqdm(range(0, iterations), disable=args.to_stdout):
+    for iduser in tqdm(range(0, iterations), disable=args.to_stdout):
 
         idx = env.prog_to_idx["INTERVENE"]
+
+        f,w = dataloader.get_example(specific_idx=iduser)
+        env = import_dyn_class(config.get("environment").get("name"))(
+            f,w,
+            **config.get("environment").get("configuration_parameters", {}),
+            **config.get("validation").get("environment", {}).get("configuration_parameters", {})
+        )
 
         network_only = PolicyOnly(policy, env, env.max_depth_dict)
         netonly_reward, trace_used, cost = network_only.play(idx)
@@ -107,11 +116,6 @@ if __name__ == "__main__":
 
     if len(traces) != 0:
         t = pd.DataFrame(traces, columns=["id", "program", "argument"])
-
-    #print("Correct:", sum(reward))
-    #print("Failures:", iterations-sum(reward))
-    # print("Mean/std cost: ", sum(costs)/len(costs), np.std(costs))
-    # print("Mean/std length actions: ", sum(length_actions) / len(length_actions), np.std(length_actions))
 
     # Fix if they are empty
     costs = costs if costs else [0]
