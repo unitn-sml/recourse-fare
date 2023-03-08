@@ -47,11 +47,11 @@ training:
 
 # Environment of this experiment
 environment:
-  name: "rl_mcts.example.mock_env.MockEnv"
+  name: "rl_mcts.example.mock_env_scm.MockEnv"
 
   # Encoder for the environment of this experiment
   encoder:
-    name: "rl_mcts.example.mock_env.MockEnvEncoder"
+    name: "rl_mcts.example.mock_env_scm.MockEnvEncoder"
     configuration_parameters:
       encoding_dim: 20
 
@@ -62,7 +62,7 @@ policy:
   encoding_dim: 20 # This needs to be equal to the encoder embedding_dim
 
 validation:
-  dataset_name: "mock_env"
+  dataset_name: "mock_env_scm"
   iterations: 100
 
   mcts:

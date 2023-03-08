@@ -1,5 +1,7 @@
-from rl_mcts.core.environment import Environment
+from rl_mcts.core.environment_scm import EnvironmentSCM
 from collections import OrderedDict
+
+from causalgraphicalmodels import StructuralCausalModel
 
 import numpy as np
 import random
@@ -24,9 +26,14 @@ class MockEnvEncoder(nn.Module):
         x = torch.tanh(self.l2(x))
         return x
 
-class MockEnv(Environment):
+class MockEnv(EnvironmentSCM):
 
-    def __init__(self, f,w, config_args=None):
+    def __init__(self, f, w, config_args=None):
+
+        self.program_feature_mapping = {
+            "ADD": lambda x: f"x{x}",
+            "SUB": lambda x: f"x{x}"
+        }
 
         self.prog_to_func = OrderedDict(sorted({'STOP': self._stop,
                                                 'ADD': self._add,
@@ -54,22 +61,41 @@ class MockEnv(Environment):
         for k, v in self.arguments.items():
             self.complete_arguments += v
 
-        self.arguments_index = [(i, v) for i, v in enumerate(self.complete_arguments)]
+        self.arguments_index = {i: v for i, v in enumerate(self.complete_arguments)}
 
-        self.max_depth_dict = {1: 10}
+        self.max_depth_dict = {1: 5}
 
         for idx, key in enumerate(sorted(list(self.programs_library.keys()))):
             self.programs_library[key]['index'] = idx
 
-        # Placeholder needed for testing
-        self.data = list(range(0,100))
+        scm = StructuralCausalModel({
+                "x1": lambda n_samples: np.random.binomial(n=1,p=0.7,size=n_samples),
+                "x2": lambda x1, n_samples: np.random.normal(loc=x1*2, scale=0.1),
+                "x3": lambda x1, x2, n_samples: x2 ** 2 - x1,
+                "x4": lambda x1, n_samples: np.random.normal(loc=x1, scale=0.3),
+                "x5": lambda x2, x3, x4, n_samples: np.random.normal(loc=x4, scale=0.1) + x2 -x3,
+            })
+        
+        A = {
+            "x1": {},
+            "x2": {"x1": 0.2},
+            "x3": {"x1": 0.2, "x2": 1.2},
+            "x4": {"x1": 0.2},
+            "x5": {"x2": 2, "x3": 1.2, "x4": -0.3},
+        }
 
         super().__init__(f, w, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
-                         self.programs_library, self.arguments, self.max_depth_dict, complete_arguments=self.complete_arguments)
-
+                         self.programs_library, self.arguments, self.max_depth_dict,
+                         complete_arguments=self.complete_arguments,
+                         scm=scm,
+                         A=A,
+                         program_feature_mapping=self.program_feature_mapping)
+        
+    def get_feature_name(self, program_name: str, arguments) -> str:
+        return self.program_feature_mapping.get(program_name, None)(arguments)
 
     def init_env(self):
-        pass
+        self.has_been_reset = True
 
     def reset_env(self, task_index):
         self.has_been_reset = True
@@ -86,10 +112,10 @@ class MockEnv(Environment):
         return True
 
     def _add(self, arguments=None):
-        self.features[f"x{arguments}"] += 1
+        self.features[f"x{arguments}"] += 0.5
 
     def _sub(self, arguments=None):
-        self.features[f"x{arguments}"] -= 1
+        self.features[f"x{arguments}"] -= 0.5
 
     def _stop_precondition(self, args):
         return True
@@ -106,19 +132,12 @@ class MockEnv(Environment):
     def _count_10_postcondition(self, init_state, current_state):
         # TODO: testing only!!!! Change this!!!! It will return always true to facilitate testing.
         #return True
-        return np.sum([self.features.get(k) for k in self.features.keys()]) > 7
+        prev_sum = np.sum([init_state.get(k) for k in init_state.keys()])
+        return np.sum([self.features.get(k) for k in self.features.keys()]) > 7 and prev_sum < 7 
 
     def get_observation(self):
-        current_val = np.sum([self.features.get(k) for k in self.features.keys()])
-        return torch.FloatTensor(np.array([
-            current_val > 0,
-            current_val > -0.5,
-            current_val > -1,
-            current_val > -2,
-            current_val > -4,
-            current_val > -5,
-            current_val > -6,
-        ]))
+        current_val = [self.features.get(k) for k in self.features.keys()]
+        return torch.FloatTensor(np.array(current_val))
 
     def get_state(self):
         return self.features.copy()

@@ -213,7 +213,7 @@ if __name__ == "__main__":
                 )
                 mcts_validation = MCTS_CLASS(
                     env_validation, trainer.policy, task_index,
-                    **config.get("training").get("mcts").get("configuration_parameters")
+                    **config.get("validation").get("mcts").get("configuration_parameters")
                 )
 
                 # Sample an execution trace with mcts using policy as a prior
