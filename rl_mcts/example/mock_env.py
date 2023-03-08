@@ -26,7 +26,7 @@ class MockEnvEncoder(nn.Module):
 
 class MockEnv(Environment):
 
-    def __init__(self, config_args=None):
+    def __init__(self, f,w, config_args=None):
 
         self.prog_to_func = OrderedDict(sorted({'STOP': self._stop,
                                                 'ADD': self._add,
@@ -45,7 +45,7 @@ class MockEnv(Environment):
                                                'COUNT_10': {'level': 1, 'args': 'NONE'}}.items()))
 
         self.arguments = OrderedDict(sorted({
-            "INT": list(range(0,10)),
+            "INT": list(range(1,6)),
             "NONE": [0]
         }.items()))
 
@@ -64,21 +64,20 @@ class MockEnv(Environment):
         # Placeholder needed for testing
         self.data = list(range(0,100))
 
-        super().__init__(self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
+        super().__init__(f, w, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
                          self.programs_library, self.arguments, self.max_depth_dict, complete_arguments=self.complete_arguments)
 
 
     def init_env(self):
-        self.memory = [0]
+        pass
 
     def reset_env(self, task_index):
-        self.memory[0] = random.randint(-5, 50)
         self.has_been_reset = True
 
         return 0, 0
 
     def reset_to_state(self, state):
-        self.memory = state
+        self.features = state
 
     def get_stop_action_index(self):
         return self.programs_library["STOP"]["index"]
@@ -87,10 +86,10 @@ class MockEnv(Environment):
         return True
 
     def _add(self, arguments=None):
-        self.memory[0] += arguments
+        self.features[f"x{arguments}"] += 1
 
     def _sub(self, arguments=None):
-        self.memory[0] -= arguments
+        self.features[f"x{arguments}"] -= 1
 
     def _stop_precondition(self, args):
         return True
@@ -99,7 +98,7 @@ class MockEnv(Environment):
         return True
 
     def _sub_precondition(self, args):
-        return self.memory[0] > 0
+        return self.features.get(f"x{args}") > 0
 
     def _count_10_precondition(self, args):
         return True
@@ -107,21 +106,22 @@ class MockEnv(Environment):
     def _count_10_postcondition(self, init_state, current_state):
         # TODO: testing only!!!! Change this!!!! It will return always true to facilitate testing.
         #return True
-        return self.memory[0] == 50
+        return np.sum([self.features.get(k) for k in self.features.keys()]) > 0
 
     def get_observation(self):
-        return np.array([
-            self.memory[0] > 0,
-            self.memory[0] < 0,
-            self.memory[0] > 5,
-            self.memory[0] > 15,
-            self.memory[0] > 25,
-            self.memory[0] > 35,
-            self.memory[0] > 45,
-        ])
+        current_val = np.sum([self.features.get(k) for k in self.features.keys()])
+        return torch.FloatTensor(np.array([
+            current_val > 0,
+            current_val > -0.5,
+            current_val > -1,
+            current_val > -2,
+            current_val > -4,
+            current_val > -5,
+            current_val > -6,
+        ]))
 
     def get_state(self):
-        return list(self.memory)
+        return self.features.copy()
 
     def get_obs_dimension(self):
         return len(self.get_observation())
@@ -150,7 +150,6 @@ class MockEnv(Environment):
 
     def get_additional_parameters(self):
         return {
-            "programs_types": self.programs_library,
             "types": self.arguments
         }
 

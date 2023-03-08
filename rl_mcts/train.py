@@ -1,3 +1,4 @@
+from rl_mcts.core.data_loader import DataLoader
 from rl_mcts.core.buffer.trace_buffer import PrioritizedReplayBuffer
 from rl_mcts.core.trainer.trainer import Trainer
 from rl_mcts.core.trainer.trainer_statistics import MovingAverageStatistics
@@ -65,7 +66,11 @@ if __name__ == "__main__":
 
     if rank == 0:
 
+        dataloader = DataLoader(**config.get("dataloader").get("configuration_parameters", {}))
+        f,w = dataloader.get_example()
+
         env = import_dyn_class(config.get("environment").get("name"))(
+            f,w,
             **config.get("environment").get("configuration_parameters", {})
         )
 
@@ -111,11 +116,6 @@ if __name__ == "__main__":
         statistics = MovingAverageStatistics(programs_library,
                                         moving_average=config.get("training").get("curriculum_statistics").get("moving_average"))
 
-        mcts = import_dyn_class(config.get("training").get("mcts").get("name"))(
-            env, policy, 1,
-            **config.get("training").get("mcts").get("configuration_parameters")
-        )
-
         writer = SummaryWriter(config.get("general").get("tensorboard_dir"))
 
         early_stopping = EarlyStopping(patience=config.get("training").get("patience", 10), verbose=True,
@@ -124,17 +124,9 @@ if __name__ == "__main__":
 
     for iteration in range(config.get("training").get("num_iterations")):
 
-        # Kill everything if we reached the earlystopping criterion
-        if early_stopping_reached:
-            break
-
         if rank==0:
             task_index = statistics.get_task_index()
-            mcts = MCTS_CLASS(
-                env, policy, task_index,
-                **config.get("training").get("mcts").get("configuration_parameters")
-            )
-            bcast_data = [mcts, early_stopping_reached]
+            bcast_data = [task_index, dataloader, policy, early_stopping_reached]
 
         act_loss_total = []
         crit_loss_total = []
@@ -144,13 +136,24 @@ if __name__ == "__main__":
         for episode in range(config.get("training").get("num_episodes_per_iteration")):
 
             if not args.single_core:
-                mcts, early_stopping_reached = comm.bcast(bcast_data, root=0)
+                task_index, dataloader, policy, early_stopping_reached = comm.bcast(bcast_data, root=0)
+
+            features, weights = dataloader.get_example(sample_errors=0.2)
+            env = import_dyn_class(config.get("environment").get("name"))(
+                features.copy(),weights.copy(),
+                **config.get("environment").get("configuration_parameters", {})
+            )
+            mcts = MCTS_CLASS(
+                env, policy, task_index,
+                **config.get("training").get("mcts").get("configuration_parameters")
+            )
 
             # Kill everything if we reached the earlystopping criterion
             if early_stopping_reached:
                 break
 
             traces, root_node, node_expanded = mcts.sample_execution_trace()
+            traces = [features, weights, traces]
 
             if not args.single_core:
                 traces = comm.gather(traces, root=0)
@@ -158,14 +161,29 @@ if __name__ == "__main__":
             else:
                 traces = [traces]
                 node_expanded = [node_expanded]
+
             if rank == 0:
 
-                act_loss, crit_loss, args_loss = trainer.train_one_step(traces)
+                # Save the failed traces inside the buffer and train only
+                # over the successful ones.
+                complete_traces = []
+                for trace_feature, trace_weights, trace in traces:
+                    if trace.task_reward < 0:
+                        dataloader.add_failed_example(trace_feature, trace_weights)
+                    else:
+                        complete_traces.append(trace)
+
+                act_loss, crit_loss, args_loss = trainer.train_one_step(complete_traces)
 
                 act_loss_total.append(act_loss)
                 crit_loss_total.append(crit_loss)
                 args_loss_total.append(args_loss)
                 total_node_expanded += node_expanded
+
+        # Kill everything if we reached the earlystopping criterion
+        # This is needed to avoid to hang child processes
+        if early_stopping_reached:
+            break
 
         if rank == 0:
 
@@ -185,15 +203,32 @@ if __name__ == "__main__":
 
             task_level = env.get_program_level_from_index(task_index)
 
-            # Enable validation mode (no sampling from failed states, just random)
-            env.validation = True
+            validation_rewards = []
+            costs = []
+            lengths = []
+            for _ in range(trainer.num_validation_episodes):
 
-            mcts = MCTS_CLASS(
-                env, policy, task_index,
-                **config.get("training").get("mcts").get("configuration_parameters")
-            )
+                features, weights = dataloader.get_example()
+                env_validation = import_dyn_class(config.get("environment").get("name"))(
+                    features.copy(),weights.copy(),
+                    **config.get("environment").get("configuration_parameters", {})
+                )
+                mcts_validation = MCTS_CLASS(
+                    env_validation, policy, task_index,
+                    **config.get("training").get("mcts").get("configuration_parameters")
+                )
 
-            validation_rewards, validation_cost, validation_length = trainer.perform_validation_step(env, task_index)
+                # Sample an execution trace with mcts using policy as a prior
+                trace, root_node, _ = mcts_validation.sample_execution_trace()
+                task_reward = trace.task_reward
+
+                cost, _ = get_cost_from_tree(env, root_node)
+                costs.append(cost)
+                lengths.append(len(trace.previous_actions[1:]))
+
+                validation_rewards.append(task_reward)
+
+            validation_cost, validation_length = np.mean(costs), np.mean(lengths)
             statistics.update_statistics(validation_rewards)
 
             early_stopping(validation_cost, statistics.get_statistic(task_index), policy)

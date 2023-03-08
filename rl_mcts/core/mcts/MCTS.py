@@ -341,7 +341,6 @@ class MCTS:
         if reward > 0 and not illegal_action and not max_depth_reached:
             task_reward = reward * (self.gamma ** final_node.depth)
         else:
-            self.env.update_failing_envs(env_init_state.copy(), self.env.get_program_from_index(self.task_index))
             task_reward = -1
 
         # Replace None rewards by the true final task reward

@@ -7,9 +7,11 @@ import torch
 
 class Environment(ABC):
 
-    def __init__(self, prog_to_func, prog_to_precondition, prog_to_postcondition, programs_library, arguments,
-                 max_depth_dict, prog_to_cost=None, complete_arguments=None, sample_from_errors_prob=0.3,
-                 custom_tensorboard_metrics=None, validation=False):
+    def __init__(self, features, weights, prog_to_func, prog_to_precondition, prog_to_postcondition, programs_library, arguments,
+                 max_depth_dict, prog_to_cost=None, complete_arguments=None, custom_tensorboard_metrics=None):
+
+        self.weights = weights
+        self.features = features
 
         self.prog_to_func = prog_to_func
         self.prog_to_precondition = prog_to_precondition
@@ -35,34 +37,15 @@ class Environment(ABC):
         self.arguments = arguments
         self.complete_arguments = complete_arguments
 
-        self.failed_execution_envs = {
-            k: [] for k in self.programs_library
-        }
-        self.max_failed_envs = 200
-        self.sample_from_errors_prob = sample_from_errors_prob
-        self.validation = validation
-
         if custom_tensorboard_metrics is None:
             custom_tensorboard_metrics = {}
         self.custom_tensorboard_metrics = custom_tensorboard_metrics
 
         self.init_env()
 
-    def setup_dataset(self, dataset, bad_class_value, target_column, predicted_column):
-
-        self.data = pd.read_csv(dataset, sep=",")
-        self.data = self.data.dropna()  # Drop columns with na
-        self.data = self.data[self.data[target_column] == bad_class_value]
-        self.data = self.data[self.data[predicted_column] == self.data[target_column]]
-
-        self.y = self.data[target_column]
-        self.y.reset_index(drop=True, inplace=True)
-
-        self.data = self.data.drop(columns=[target_column, predicted_column])
-        self.data.reset_index(drop=True, inplace=True)
-
     def setup_system(self, boolean_cols, categorical_cols, encoder, scaler,
                       classifier, net_class, sample_env, net_layers=5, net_size=108):
+        
         self.parsed_columns = boolean_cols + categorical_cols
 
         self.complete_arguments = []
@@ -85,10 +68,6 @@ class Environment(ABC):
         checkpoint = torch.load(classifier)
         self.classifier = net_class(net_size, layers=net_layers)  # Taken empirically from the classifier
         self.classifier.load_state_dict(checkpoint)
-
-        # Needed for validation
-        self.sample_env = sample_env
-        self.current_idx = 0
 
         # Custom metric we want to print at each iteration
         self.custom_tensorboard_metrics = {
@@ -254,55 +233,3 @@ class Environment(ABC):
     @abstractmethod
     def compare_state(self, state_a, state_b):
         pass
-
-    def update_failing_envs(self, state, program):
-        """
-        Update failing env count
-        :param env: current failed env
-        :param program: current failed program
-        :return:
-        """
-
-        if self.failed_execution_envs is None:
-            raise Exception("The failed envs are None! Error sampling is not implemented")
-
-        # Do not update if we are running in validation mode
-        if len(self.failed_execution_envs[program]) == 0:
-            self.failed_execution_envs[program].append((state, 1, 1000))
-        else:
-            found = False
-            for i in range(len(self.failed_execution_envs[program])):
-                if self.compare_state(state, self.failed_execution_envs[program][i][0]):
-                    self.failed_execution_envs[program][i] = (
-                    self.failed_execution_envs[program][i][0], self.failed_execution_envs[program][i][1] + 1,
-                    self.failed_execution_envs[program][i][2] + 1)
-                    found = True
-                    break
-                else:
-                    self.failed_execution_envs[program][i] = (
-                    self.failed_execution_envs[program][i][0], self.failed_execution_envs[program][i][1],
-                    self.failed_execution_envs[program][i][2] - 1)
-            if not found:
-                # Remove the failed program with the least life from the list to make space for the new one
-                if len(self.failed_execution_envs[program]) >= self.max_failed_envs:
-                    self.failed_execution_envs[program].sort(key=lambda t: t[2])
-                    del self.failed_execution_envs[program][0]
-                self.failed_execution_envs[program].append((state, 1, 1000))
-
-    def sample_from_failed_state(self, program):
-        """
-        Return the dictionary where to sample from.
-        :param program: program we are resetting
-        :return: the dictionary
-        """
-        result = None
-        if np.random.random_sample() < self.sample_from_errors_prob \
-                and len(self.failed_execution_envs[program]) > 0 \
-                and not self.validation:
-            env = self.failed_execution_envs
-            total_errors = sum([x[1] for x in env[program]])
-            sampling_prob = [x[1]/total_errors for x in env[program]]
-            index = np.random.choice(len(env[program]), p=sampling_prob)
-            result = env[program][index][0].copy()
-
-        return result
