@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
         if rank==0:
             task_index = statistics.get_task_index()
-            bcast_data = [task_index, dataloader, policy, early_stopping_reached]
+            bcast_data = [task_index, dataloader, trainer.policy, early_stopping_reached]
 
         act_loss_total = []
         crit_loss_total = []
@@ -201,8 +201,6 @@ if __name__ == "__main__":
             for k in env.custom_tensorboard_metrics:
                 writer.add_scalar("custom/" + v_task_name + f"/{k}", env.custom_tensorboard_metrics.get(k), iteration)
 
-            task_level = env.get_program_level_from_index(task_index)
-
             validation_rewards = []
             costs = []
             lengths = []
@@ -214,7 +212,7 @@ if __name__ == "__main__":
                     **config.get("environment").get("configuration_parameters", {})
                 )
                 mcts_validation = MCTS_CLASS(
-                    env_validation, policy, task_index,
+                    env_validation, trainer.policy, task_index,
                     **config.get("training").get("mcts").get("configuration_parameters")
                 )
 
@@ -228,27 +226,28 @@ if __name__ == "__main__":
 
                 validation_rewards.append(task_reward)
 
-            validation_cost, validation_length = np.mean(costs), np.mean(lengths)
-            statistics.update_statistics(validation_rewards)
+            # Update the statistics
+            statistics.update_statistics(validation_rewards, costs, lengths)
 
-            early_stopping(validation_cost, statistics.get_statistic(task_index), policy)
-            if early_stopping.early_stop:
-                early_stopping_reached = True
+            # Get moving average of the statistic
+            avg_validity, avg_cost, avg_length = statistics.get_statistic()
 
-            # Disable validation mode (no sampling from failed states, just random)
-            env.validation = False
+            # Get information about early stopping condition
+            #early_stopping(np.mean(costs), avg_cost, trainer.policy)
+            #if early_stopping.early_stop:
+            #    early_stopping_reached = True
 
-            v_task_name = env.get_program_from_index(task_index)
             # record on tensorboard
-            writer.add_scalar('validation/' + v_task_name + '/avg_validity', statistics.get_statistic(task_index), iteration)
-            writer.add_scalar('validation/' + v_task_name + '/avg_cost', validation_cost, iteration)
-            writer.add_scalar('validation/' + v_task_name + '/avg_length', validation_length, iteration)
+            v_task_name = env.get_program_from_index(task_index)
+            writer.add_scalar('validation/' + v_task_name + '/avg_validity', avg_validity, iteration)
+            writer.add_scalar('validation/' + v_task_name + '/avg_cost', avg_cost, iteration)
+            writer.add_scalar('validation/' + v_task_name + '/avg_length', avg_length, iteration)
 
-            print(f"[*] Iteration {iteration+1} / Buffer Size: {buffer.get_total_successful_traces()} / {statistics.print_statistics(string_out=True)}")
+            print(f"[*] Iteration {(iteration+1)*(config.get('training').get('num_episodes_per_iteration'))} / Buffer Size: {buffer.get_total_successful_traces()} / {statistics.print_statistics(string_out=True)}")
 
             # Save policy
             # We save the model only when we reach a satisfactory accuracy
             if config.get("general").get("save_model"):
-                torch.save(policy.state_dict(), save_model_path)
+                torch.save(trainer.policy.state_dict(), save_model_path)
 
 

@@ -44,7 +44,7 @@ class Environment(ABC):
         self.init_env()
 
     def setup_system(self, boolean_cols, categorical_cols, encoder, scaler,
-                      classifier, net_class, sample_env, net_layers=5, net_size=108):
+                      classifier, net_class, net_layers=5, net_size=108):
         
         self.parsed_columns = boolean_cols + categorical_cols
 
@@ -65,9 +65,12 @@ class Environment(ABC):
         self.data_scaler = pickle.load(open(scaler, "rb"))
 
         # Load the classifier
-        checkpoint = torch.load(classifier)
-        self.classifier = net_class(net_size, layers=net_layers)  # Taken empirically from the classifier
-        self.classifier.load_state_dict(checkpoint)
+        if net_class:
+            checkpoint = torch.load(classifier)
+            self.classifier = net_class(net_size, layers=net_layers)  # Taken empirically from the classifier
+            self.classifier.load_state_dict(checkpoint)
+        else:
+            self.classifier = None
 
         # Custom metric we want to print at each iteration
         self.custom_tensorboard_metrics = {

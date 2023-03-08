@@ -14,6 +14,8 @@ class MovingAverageStatistics():
         self.task_index = [p['index'] for _,p in programs_library.items() if p['level'] == self.maximum_level][0]
 
         self.task_average_reward = 0
+        self.task_average_cost = 0
+        self.task_average_length = 0
         self.task_stats_update = 0
 
     def get_task_index(self):
@@ -29,7 +31,7 @@ class MovingAverageStatistics():
             return res
         print(res)
 
-    def get_statistic(self, task_index):
+    def get_statistic(self):
         """
         Returns the current average reward on the task.
         Args:
@@ -37,9 +39,9 @@ class MovingAverageStatistics():
         Returns:
             average reward on this task
         """
-        return self.task_average_reward
+        return self.task_average_reward, self.task_average_cost, self.task_average_length
 
-    def update_statistics(self, rewards):
+    def update_statistics(self, rewards, costs, lengths):
         """This function must be called every time a new task has been attempted by NPI. It is used to
         update tasks average rewards as well as the maximum_task level.
         Args:
@@ -48,7 +50,10 @@ class MovingAverageStatistics():
           rewards:
         """
         # Update task average reward
-        for reward in rewards:
+        for reward, cost, length in zip(rewards, costs, lengths):
             # all non-zero rewards are considered to be 1.0 in the curriculum scheduler
             reward = 1.0 if reward > 0.0 else 0.0
             self.task_average_reward = self.moving_average*self.task_average_reward + (1-self.moving_average)*reward
+    
+            self.task_average_cost = self.moving_average*self.task_average_cost + (1-self.moving_average)*cost
+            self.task_average_length = self.moving_average*self.task_average_length + (1-self.moving_average)*length
