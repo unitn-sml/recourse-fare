@@ -1,4 +1,5 @@
 from rl_mcts.core.utils.functions import import_dyn_class
+from rl_mcts.core.data_loader import DataLoader
 from rl_mcts.core.automa.efare import EFARE
 
 from argparse import ArgumentParser
@@ -53,7 +54,11 @@ if __name__ == "__main__":
 
     if rank == 0:
 
+        dataloader = DataLoader(**config.get("validation").get("dataloader").get("configuration_parameters", {}))
+        f,w = dataloader.get_example()
+
         env = import_dyn_class(config.get("environment").get("name"))(
+            f,w,
             **config.get("environment").get("configuration_parameters", {}),
             **config.get("validation").get("environment", {}).get("configuration_parameters", {})
         )
@@ -61,8 +66,6 @@ if __name__ == "__main__":
         num_programs = env.get_num_programs()
         observation_dim = env.get_obs_dimension()
         programs_library = env.programs_library
-
-        idx_tasks = [prog['index'] for key, prog in env.programs_library.items() if prog['level'] > 0]
 
         # Set up the encoder needed for the environment
         encoder = import_dyn_class(config.get("environment").get("encoder").get("name"))(
@@ -84,19 +87,22 @@ if __name__ == "__main__":
 
         MCTS_CLASS = import_dyn_class(config.get("validation").get("mcts").get("name"))
 
-        idx = env.prog_to_idx["INTERVENE"]
-
-        mcts = MCTS_CLASS(
-            env, policy, idx,
-            **config.get("validation").get("mcts").get("configuration_parameters")
-        )
-
         efare_model = EFARE(env, operation="INTERVENE", seed=args.seed)
 
     for _ in tqdm(range(0, args.sampling_budget//size)):
 
         if not args.single_core:
-            mcts = comm.bcast(mcts, root=0)
+            dataloader = comm.bcast(dataloader, root=0)
+
+        features, weights = dataloader.get_example()
+        env = import_dyn_class(config.get("environment").get("name"))(
+            features.copy(),weights.copy(),
+            **config.get("environment").get("configuration_parameters", {})
+        )
+        mcts = MCTS_CLASS(
+            env, policy, env.prog_to_idx["INTERVENE"],
+            **config.get("validation").get("mcts").get("configuration_parameters")
+        )
 
         traces = mcts.sample_execution_trace()
 

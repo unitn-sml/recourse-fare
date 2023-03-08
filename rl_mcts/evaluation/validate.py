@@ -1,4 +1,5 @@
 from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_tree, get_trace
+from rl_mcts.core.data_loader import DataLoader
 
 import numpy as np
 
@@ -34,7 +35,11 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+    dataloader = DataLoader(**config.get("validation").get("dataloader").get("configuration_parameters", {}))
+    f,w = dataloader.get_example()
+
     env = import_dyn_class(config.get("environment").get("name"))(
+        f,w,
         **config.get("environment").get("configuration_parameters", {}),
         **config.get("validation").get("environment", {}).get("configuration_parameters", {})
     )
@@ -73,11 +78,6 @@ if __name__ == "__main__":
             idx = env.prog_to_idx[k]
     assert idx != None, "Error! The environment has not task with a level greater than 0."
 
-    mcts = MCTS_CLASS(
-        env, policy, idx,
-        **config.get("validation").get("mcts", {}).get("configuration_parameters", {})
-    )
-
     idusers = []
     mcts_rewards_normalized = []
     mcts_rewards = []
@@ -95,8 +95,20 @@ if __name__ == "__main__":
     if args.save:
         results_filename = config.get("validation").get("save_results_name")+date_time
 
-    iterations = min(int(config.get("validation").get("iterations")), len(env.data))
+    iterations = min(int(config.get("validation").get("iterations")), len(dataloader.data))
     for iduser in tqdm(range(0, iterations), disable=args.to_stdout):
+
+        f,w = dataloader.get_example(specific_idx=iduser)
+
+        env = import_dyn_class(config.get("environment").get("name"))(
+            f,w,
+            **config.get("environment").get("configuration_parameters", {}),
+            **config.get("validation").get("environment", {}).get("configuration_parameters", {})
+        )
+        mcts = MCTS_CLASS(
+            env, policy, idx,
+            **config.get("validation").get("mcts").get("configuration_parameters")
+        )
 
         trace, root_node, _ = mcts.sample_execution_trace()
 

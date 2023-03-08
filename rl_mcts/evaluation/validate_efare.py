@@ -1,4 +1,5 @@
 from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_env
+from rl_mcts.core.data_loader import DataLoader
 
 import numpy as np
 import pandas as pd
@@ -57,9 +58,9 @@ def extract_rule_from_tree(model, instance):
 
 def validation_recursive_tree(model, env, action, depth, cost, action_list, rules):
     if action == "STOP(0)":
-        return [[True, env.memory.copy(), cost, action_list, rules]]
+        return [[True, env.features.copy(), cost, action_list, rules]]
     elif depth < 0:
-        return [[False, env.memory.copy(), cost, action_list, rules]]
+        return [[False, env.features.copy(), cost, action_list, rules]]
     else:
         node_name = action.split("(")[0]
         actions = model.get(node_name)
@@ -85,7 +86,7 @@ def validation_recursive_tree(model, env, action, depth, cost, action_list, rule
                 precondition_satisfied = False
 
             if not precondition_satisfied:
-                return [[False, env.memory.copy(), cost, action_list, rules]]
+                return [[False, env.features.copy(), cost, action_list, rules]]
 
             cost += get_cost_from_env(env, action_name, str(args))
 
@@ -103,7 +104,7 @@ def validation_recursive_tree(model, env, action, depth, cost, action_list, rule
 
             cost += get_cost_from_env(env, action_name, str(args))
 
-            return [[True, env.memory.copy(), cost, action_list, rules]]
+            return [[True, env.features.copy(), cost, action_list, rules]]
 
 
 if __name__ == "__main__":
@@ -142,11 +143,16 @@ if __name__ == "__main__":
     dataset = None
     results_filename = None
 
+    dataloader = DataLoader(**config.get("validation").get("dataloader").get("configuration_parameters", {}))
+    f,w = dataloader.get_example()
+
+
     if rank == 0:
 
         env = import_dyn_class(config.get("environment").get("name"))(
+            f,w,
             **config.get("environment").get("configuration_parameters", {}),
-            **config.get("validation").get("environment").get("configuration_parameters", {})
+            **config.get("validation").get("environment", {}).get("configuration_parameters", {})
         )
 
         method="program"
@@ -176,16 +182,10 @@ if __name__ == "__main__":
 
         if args.save:
             results_filename = config.get("validation").get("save_results_name")+date_time
-            #results_file = open(
-            #    os.path.join(config.get("validation").get("save_results"), results_filename), "w"
-            #)
 
         with open(args.model, "rb") as f:
             import dill as pickle
             model = pickle.load(f)
-
-        # perform validation, not training
-        env.validation = True
 
         reward = []
         costs = []
@@ -195,9 +195,19 @@ if __name__ == "__main__":
         length_rules = []
         total_rules=[]
 
-    iterations = min(int(config.get("validation").get("iterations")), len(env.data))
+    iterations = min(int(config.get("validation").get("iterations")), len(dataloader.data))
 
-    for iduser in tqdm(range(0, iterations//size), disable=args.to_stdout):
+    perrank = iterations // size
+
+    for iduser in tqdm(range(0 + rank * perrank, 0 + (rank + 1) * perrank), disable=args.to_stdout):
+
+        f,w = dataloader.get_example(specific_idx=iduser)
+
+        env = import_dyn_class(config.get("environment").get("name"))(
+            f,w,
+            **config.get("environment").get("configuration_parameters", {}),
+            **config.get("validation").get("environment", {}).get("configuration_parameters", {})
+        )
 
         if not args.single_core:
             env = comm.bcast(env, root=0)
@@ -222,7 +232,8 @@ if __name__ == "__main__":
         if rank == 0:
             for R in results:
                 for r in R:
-                    env.memory = r[1]
+
+                    env.features = r[1].copy()
                     if env.prog_to_postcondition[env.get_program_from_index(idx)](None, None) and r[0]:
                         reward.append(1)
                         idusers.append(iduser)
