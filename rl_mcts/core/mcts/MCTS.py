@@ -319,7 +319,7 @@ class MCTS:
         # Clear from previous content
         self.empty_previous_trace()
 
-        init_observation, state_index  = self.env.start_task(self.task_index)
+        init_observation = self.env.start_task(self.task_index)
         with torch.no_grad():
             state_h, state_c, state_h_args, state_c_args = self.policy.init_tensors()
             env_init_state = self.env.get_state()

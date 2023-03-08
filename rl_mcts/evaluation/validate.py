@@ -43,7 +43,6 @@ if __name__ == "__main__":
     dataset=config.get("validation").get("dataset_name")
 
     num_programs = env.get_num_programs()
-    num_non_primary_programs = env.get_num_non_primary_programs()
     observation_dim = env.get_obs_dimension()
     programs_library = env.programs_library
 

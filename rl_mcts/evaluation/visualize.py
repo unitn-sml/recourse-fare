@@ -23,7 +23,6 @@ if __name__ == "__main__":
     )
 
     num_programs = env.get_num_programs()
-    num_non_primary_programs = env.get_num_non_primary_programs()
     observation_dim = env.get_obs_dimension()
     programs_library = env.programs_library
 
@@ -42,10 +41,9 @@ if __name__ == "__main__":
     policy = import_dyn_class(config.get("policy").get("name"))(
         encoder,
         config.get("policy").get("hidden_size"),
-        num_programs, num_non_primary_programs,
+        num_programs,
         config.get("policy").get("embedding_dim"),
         config.get("policy").get("encoding_dim"),
-        indices_non_primary_programs,
         **additional_arguments_from_env
     )
 

@@ -95,28 +95,6 @@ class Environment(ABC):
             "call_to_the_classifier": 0
         }
 
-
-    def start_task(self, task_index):
-
-        task_name = self.get_program_from_index(task_index)
-        assert self.prog_to_precondition[task_name], 'cant start task {} ' \
-                                                     'because its precondition is not verified'.format(task_name)
-        self.current_task_index = task_index
-        self.tasks_list.append(task_index)
-
-        state_index = -1
-        total_size = -1
-
-        if len(self.tasks_dict.keys()) == 0:
-            # reset env
-            state_index, total_size = self.reset_env(task_index)
-
-        # store init state
-        init_state = self.get_state()
-        self.tasks_dict[len(self.tasks_list)] = init_state
-
-        return self.get_observation(), state_index
-
     @abstractmethod
     def get_observation(self):
         pass
@@ -138,29 +116,38 @@ class Environment(ABC):
         pass
 
     @abstractmethod
-    def reset_to_state(self, state):
-        pass
+    def reset_to_state(self, state) -> None:
+        """Reset the state of the environment to the one given as argument.
 
-    def get_num_non_primary_programs(self):
-        return len(self.programs) - len(self.primary_actions)
+        Args:
+            state: new state which will replace the current one.
+        """
+        pass
 
     def get_num_programs(self):
         return len(self.programs)
+
+    def start_task(self, task_index):
+
+        task_name = self.get_program_from_index(task_index)
+        assert self.prog_to_precondition[task_name], 'cant start task {} ' \
+                                                     'because its precondition is not verified'.format(task_name)
+        
+        # Reset the environment and save the task initial state
+        self.current_task_index = task_index
+        self.reset_env(task_index)
+        self.task_init_state = self.get_state()
+
+        return self.get_observation()
 
     def end_task(self):
         """
         Ends the last tasks that has been started.
         """
-        del self.tasks_dict[len(self.tasks_list)]
-        self.tasks_list.pop()
-        if self.tasks_list:
-            self.current_task_index = self.tasks_list[-1]
-        else:
-            self.current_task_index = None
-            self.has_been_reset = False
+        self.current_task_index = None
+        self.has_been_reset = False
 
     def get_max_depth_from_level(self, level):
-
         if level in self.max_depth_dict:
             return self.max_depth_dict[level]
         else:
@@ -251,7 +238,7 @@ class Environment(ABC):
         return self.get_observation()
 
     def get_reward(self):
-        task_init_state = self.tasks_dict[len(self.tasks_list)]
+        task_init_state = self.task_init_state
         state = self.get_state()
         current_task = self.get_program_from_index(self.current_task_index)
         current_task_postcondition = self.prog_to_postcondition[current_task]
