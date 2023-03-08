@@ -12,8 +12,6 @@ from tqdm import tqdm
 
 from sklearn.tree import _tree
 
-import dill
-
 def extract_rule_from_tree(model, instance):
 
     feature = model.tree_.feature
@@ -206,7 +204,7 @@ if __name__ == "__main__":
 
         idx = env.prog_to_idx["INTERVENE"]
 
-        _, state_index = env.start_task(idx)
+        env.start_task(idx)
 
         max_depth = env.max_depth_dict.get(1)
 

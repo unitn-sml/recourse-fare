@@ -20,7 +20,7 @@ class PolicyOnly:
         cost = []
 
         # Start new task and initialize LSTM
-        observation, _ = self.env.start_task(task_index)
+        observation = self.env.start_task(task_index)
         state_h, state_c, state_h_args, state_c_args = self.policy.init_tensors()
 
         while self.clean_sub_executions and depth <= max_depth and not wrong_program:
