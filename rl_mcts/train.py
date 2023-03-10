@@ -152,7 +152,7 @@ if __name__ == "__main__":
             if early_stopping_reached:
                 break
 
-            traces, root_node, node_expanded = mcts.sample_execution_trace()
+            traces, root_node, node_expanded = mcts.sample_intervention()
             traces = [features, weights, traces]
 
             if not args.single_core:
@@ -217,7 +217,7 @@ if __name__ == "__main__":
                 )
 
                 # Sample an execution trace with mcts using policy as a prior
-                trace, root_node, _ = mcts_validation.sample_execution_trace()
+                trace, root_node, _ = mcts_validation.sample_intervention()
                 task_reward = trace.task_reward
 
                 cost, _ = get_cost_from_tree(env_validation, root_node)

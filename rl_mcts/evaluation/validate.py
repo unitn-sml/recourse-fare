@@ -110,7 +110,7 @@ if __name__ == "__main__":
             **config.get("validation").get("mcts").get("configuration_parameters")
         )
 
-        trace, root_node, _ = mcts.sample_execution_trace()
+        trace, root_node, _ = mcts.sample_intervention()
 
         if trace.rewards[0] > 0:
             cost, length = get_cost_from_tree(env, root_node)

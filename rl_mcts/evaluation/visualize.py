@@ -62,7 +62,7 @@ if __name__ == "__main__":
 
     for _ in range(0, args.max_tries):
 
-        trace, root_node = mcts.sample_execution_trace()
+        trace, root_node = mcts.sample_intervention()
 
         if (trace.rewards[0] > 0 and not args.failure) or (args.failure and trace.rewards[0] < 0):
             visualiser = MCTSvisualiser(env=env)

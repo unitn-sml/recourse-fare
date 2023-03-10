@@ -104,7 +104,7 @@ if __name__ == "__main__":
             **config.get("validation").get("mcts").get("configuration_parameters")
         )
 
-        traces = mcts.sample_execution_trace()
+        traces = mcts.sample_intervention()
 
         if not args.single_core:
             traces = comm.gather(traces, root=0)

@@ -1,4 +1,4 @@
-from rl_mcts.core.mcts import ExecutionTrace, MCTSNode
+from rl_mcts.core.mcts import Intervention, MCTSNode
 from rl_mcts.core.utils.functions import compute_q_value
 
 import torch
@@ -306,14 +306,14 @@ class MCTS:
         return root_node, max_depth_reached, illegal_action, total_node_expanded_simulation
 
 
-    def sample_execution_trace(self) -> Union[ExecutionTrace, MCTSNode]:
+    def sample_intervention(self) -> Union[Intervention, MCTSNode]:
         """
-        Sample an execution trace from the tree by running many simulations until
-        we converge or we reach the max tree depth. The execution trace is stored in
+        Sample an intervention from the tree by running many simulations until
+        we converge or we reach the max tree depth. The intervention is stored in
         a custom object.
 
-        :return: an execution trace. If the reward is -1, then the execution trace is
-        not valid. This means we did not reach the end of the program.
+        :return: an intervention. If the reward is -1, then the intervention is
+        not valid. This means we did not find a valid counterfactual.
         """
 
         # Clear from previous content
@@ -350,7 +350,7 @@ class MCTS:
         self.env.end_task()
 
         # Generate execution trace
-        return ExecutionTrace(self.lstm_states, self.lstm_args_states, self.programs_index, self.observations, self.previous_actions, task_reward,
+        return Intervention(self.lstm_states, self.lstm_args_states, self.programs_index, self.observations, self.previous_actions, task_reward,
                               self.program_arguments, self.rewards, self.mcts_policies, self.clean_sub_executions), self.root_node, total_node_expanded
 
     def _estimate_q_val(self, node):
