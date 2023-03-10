@@ -9,6 +9,8 @@ import yaml
 
 from tqdm import tqdm
 
+import pandas as pd
+
 class FARE:
 
     def __init__(self, config, model_path: str=None) -> None:
@@ -20,7 +22,7 @@ class FARE:
 
         # Load the policy from a pretrained FARE model
         if model_path:
-            self.policy.load_state_dict(torch.load("model_path"))
+            self.policy.load_state_dict(torch.load(model_path))
 
     def _init_training_objects(self) -> None:
 
@@ -72,26 +74,32 @@ class FARE:
                                         moving_average=self.config.get("training").get("curriculum_statistics").get("moving_average"))
 
     def save(self, save_model_path="."):
-        torch.save(self.trainer.policy.state_dict(), save_model_path)
+        torch.save(self.policy.state_dict(), save_model_path)
 
     def predict(self, X, verbose=False, full_output=False):
 
         task_index = self.training_statistics.get_task_index()
 
+        X, X_w = X[0].to_dict(orient='records'), X[1].to_dict(orient='records')
+
         counterfactuals = []
         Y = []
         traces = []
         costs = []
-        for i in range(len(X)):
+        for i in tqdm(range(len(X))):
 
-            features, weights = X[i]
+            features = X[i]
+            if len(X_w) > 0:
+                weights =  X_w[i]
+            else:
+                weights = {}
 
             env_validation = import_dyn_class(self.config.get("environment").get("name"))(
                 features.copy(),weights.copy(),
                 **self.config.get("environment").get("configuration_parameters", {})
             )
             mcts_validation = import_dyn_class(self.config.get("training").get("mcts").get("name"))(
-                env_validation, self.trainer.policy, task_index,
+                env_validation, self.policy, task_index,
                 **self.config.get("validation").get("mcts").get("configuration_parameters")
             )
 
@@ -107,10 +115,9 @@ class FARE:
             counterfactuals.append(env_validation.features.copy())
         
         if full_output:
-            return counterfactuals, Y, traces, costs
+            return pd.DataFrame.from_records(counterfactuals), Y, traces, costs
         else:
-            return counterfactuals
-
+            return pd.DataFrame.from_records(counterfactuals)
 
     def fit(self, X=None, max_iter=None, verbose=False):
 
@@ -128,7 +135,7 @@ class FARE:
                     **self.config.get("environment").get("configuration_parameters", {})
                 )
                 mcts = import_dyn_class(self.config.get("training").get("mcts").get("name"))(
-                    env, self.trainer.policy, task_index,
+                    env, self.policy, task_index,
                     **self.config.get("training").get("mcts").get("configuration_parameters")
                 )
 
@@ -180,3 +187,6 @@ class FARE:
 
             if verbose:
                 print(f"[*] Iteration {(iteration+1)*(self.config.get('training').get('num_episodes_per_iteration'))} / Buffer Size: {self.buffer.get_total_successful_traces()} / {self.training_statistics.print_statistics(string_out=True)}")
+    
+        # Copy the trainer policy to the object policy 
+        self.policy = self.trainer.policy
