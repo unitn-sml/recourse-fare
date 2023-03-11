@@ -15,41 +15,26 @@ class FARE:
 
     def __init__(self, config, model_path: str=None) -> None:
         
-        self.config = yaml.load(open(config),Loader=yaml.FullLoader)
+        if isinstance(config, dict):
+            self.config = config
+        else:
+            self.config = yaml.load(open(config),Loader=yaml.FullLoader)
 
-        # Initialize the various objects needed to train FARE
-        self._init_training_objects()
-
-        # Load the policy from a pretrained FARE model
-        if model_path:
-            self.policy.load_state_dict(torch.load(model_path))
-
-    def _init_training_objects(self) -> None:
-
-        self.dataloader = DataLoader(**self.config.get("dataloader").get("configuration_parameters", {}))
-        f,w = self.dataloader.get_example()
+        # Set up the encoder needed for the environment
+        self.encoder = import_dyn_class(self.config.get("environment").get("encoder").get("name"))(
+            self.config.get("environment").get("encoder").get("configuration_parameters").get("observation_dim"),
+            self.config.get("environment").get("encoder").get("configuration_parameters").get("encoding_dim")
+        )
 
         env = import_dyn_class(self.config.get("environment").get("name"))(
-            f,w,
+            None,None,
             **self.config.get("environment").get("configuration_parameters", {})
         )
 
         num_programs = env.get_num_programs()
-        programs_library = env.programs_library
-
-        # Initialize the replay buffer. It is needed to store the various traces for training
-        self.buffer = PrioritizedReplayBuffer(self.config.get("training").get("replay_buffer").get("size"),
-                                         p1=self.config.get("training").get("replay_buffer").get("sampling_correct_probability")
-                                         )
-
-        # Set up the encoder needed for the environment
-        self.encoder = import_dyn_class(self.config.get("environment").get("encoder").get("name"))(
-            env.get_obs_dimension(),
-            self.config.get("environment").get("encoder").get("configuration_parameters").get("encoding_dim")
-        )
-
         additional_arguments_from_env = env.get_additional_parameters()
 
+        # Set up the policy object
         self.policy = import_dyn_class(self.config.get("policy").get("name"))(
             self.encoder,
             self.config.get("policy").get("hidden_size"),
@@ -57,6 +42,17 @@ class FARE:
             self.config.get("policy").get("encoding_dim"),
             **additional_arguments_from_env
         )
+
+        # Load the policy from a pretrained FARE model
+        if model_path:
+            self.policy.load_state_dict(torch.load(model_path))
+
+    def _init_training_objects(self) -> None:
+
+        # Initialize the replay buffer. It is needed to store the various traces for training
+        self.buffer = PrioritizedReplayBuffer(self.config.get("training").get("replay_buffer").get("size"),
+                                         p1=self.config.get("training").get("replay_buffer").get("sampling_correct_probability")
+                                         )
 
         # Load a pre-trained model to speed up
         if self.config.get("policy").get("pretrained_model", None) is not None:
@@ -67,15 +63,18 @@ class FARE:
                           batch_size=self.config.get("training").get("trainer").get("batch_size"))
 
         # Set up the curriculum statistics that decides the next experiments to be done
-        self.training_statistics = MovingAverageStatistics(programs_library,
+        self.training_statistics = MovingAverageStatistics(
                                         moving_average=self.config.get("training").get("curriculum_statistics").get("moving_average"))
 
     def save(self, save_model_path="."):
         torch.save(self.policy.state_dict(), save_model_path)
 
-    def predict(self, X, verbose=False, full_output=False):
+    def predict(self, X, weights=None, verbose=False, full_output=False):
 
-        X, X_w = X[0].to_dict(orient='records'), X[1].to_dict(orient='records')
+        X = X.to_dict(orient='records')
+        X_w = None
+        if weights:
+            X_w = weights.to_dict(orient='records')
 
         counterfactuals = []
         Y = []
@@ -84,13 +83,13 @@ class FARE:
         for i in tqdm(range(len(X))):
 
             features = X[i]
-            if len(X_w) > 0:
+            if X_w:
                 weights =  X_w[i]
             else:
                 weights = {}
 
             env_validation = import_dyn_class(self.config.get("environment").get("name"))(
-                features.copy(),weights.copy(),
+                features.copy(), weights.copy(),
                 **self.config.get("environment").get("configuration_parameters", {})
             )
             mcts_validation = import_dyn_class(self.config.get("training").get("mcts").get("name"))(
@@ -114,15 +113,20 @@ class FARE:
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def fit(self, X=None, max_iter=None, verbose=False):
-        
+    def fit(self, X, y, max_iter=None, verbose=False):
+
+        # Initialize the various objects needed to train FARE
+        self._init_training_objects()
+
+        dataloader = DataLoader(X=X, y=y, **self.config.get("dataloader").get("configuration_parameters", {}))
+
         max_iter = self.config.get("training").get("num_iterations") if not max_iter else max_iter
 
         for iteration in tqdm(range(max_iter), desc="Train FARE", disable=verbose):
             
             for episode in range(self.config.get("training").get("num_episodes_per_iteration")):
 
-                features, weights = self.dataloader.get_example(sample_errors=0.2)
+                features, weights = dataloader.get_example(sample_errors=0.2)
                 env = import_dyn_class(self.config.get("environment").get("name"))(
                     features.copy(),weights.copy(),
                     **self.config.get("environment").get("configuration_parameters", {})
@@ -141,7 +145,7 @@ class FARE:
                 complete_traces = []
                 for trace_feature, trace_weights, trace in traces:
                     if trace.task_reward < 0:
-                        self.dataloader.add_failed_example(trace_feature, trace_weights)
+                        dataloader.add_failed_example(trace_feature, trace_weights)
                     else:
                         complete_traces.append(trace)
 
@@ -152,7 +156,7 @@ class FARE:
             lengths = []
             for _ in range(self.trainer.num_validation_episodes):
 
-                features, weights = self.dataloader.get_example()
+                features, weights = dataloader.get_example()
                 env_validation = import_dyn_class(self.config.get("environment").get("name"))(
                     features.copy(),weights.copy(),
                     **self.config.get("environment").get("configuration_parameters", {})

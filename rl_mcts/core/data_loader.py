@@ -3,25 +3,32 @@ import numpy as np
 
 class DataLoader():
     
-    def __init__(self, dataset,
+    def __init__(self, dataset=None,
                  weights_dataset=None,
+                 X=None, y=None,
                  bad_class_value="bad", target_column="loan", predicted_column="loan",
                  deterministic=False):
 
-        user_features_dataset = pd.read_csv(dataset)
+        if X is not None and y is not None:
+            self.data = X
+            self.y = y
 
-        # Filter the elements to pick only the ones with bad classification
-        filter_only_bad_elements = (user_features_dataset[target_column] == bad_class_value) & (
-                    user_features_dataset[predicted_column] == bad_class_value)
-        user_features_dataset = user_features_dataset[filter_only_bad_elements]
+        else:
 
-        self.y = user_features_dataset[predicted_column]
-        self.y.reset_index(drop=True, inplace=True)
-        user_features_dataset.drop(columns=[predicted_column, target_column], inplace=True)
+            user_features_dataset = pd.read_csv(dataset)
 
-        user_features_dataset.reset_index(inplace=True, drop=True)
+            # Filter the elements to pick only the ones with bad classification
+            filter_only_bad_elements = (user_features_dataset[target_column] == bad_class_value) & (
+                        user_features_dataset[predicted_column] == bad_class_value)
+            user_features_dataset = user_features_dataset[filter_only_bad_elements]
 
-        self.data = user_features_dataset
+            self.y = user_features_dataset[predicted_column]
+            self.y.reset_index(drop=True, inplace=True)
+            user_features_dataset.drop(columns=[predicted_column, target_column], inplace=True)
+
+            user_features_dataset.reset_index(inplace=True, drop=True)
+
+            self.data = user_features_dataset
 
         if weights_dataset is None:
             user_weight_dataset = None

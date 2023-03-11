@@ -53,6 +53,7 @@ environment:
   encoder:
     name: "rl_mcts.example.mock_env_scm.MockEnvEncoder"
     configuration_parameters:
+      observation_dim: 5
       encoding_dim: 20
 
 # Policy used for this experiment

@@ -5,12 +5,10 @@ from collections import OrderedDict
 
 class MovingAverageStatistics():
 
-    def __init__(self, task_name, moving_average=0.95):
+    def __init__(self, moving_average=0.95):
         
         self.moving_average = moving_average
         self.maximum_level = 1
-
-        self.task_name = task_name
 
         self.task_average_reward = 0
         self.task_average_cost = 0
@@ -21,7 +19,7 @@ class MovingAverageStatistics():
         '''
         Print current learning statistics (in terms of rewards).
         '''
-        res = '%s: %.3f '% (self.task_name, self.task_average_reward)
+        res = '%.3f '% self.task_average_reward
         if string_out:
             return res
         print(res)
