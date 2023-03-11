@@ -86,7 +86,7 @@ class Environment(ABC):
         pass
 
     @abstractmethod
-    def reset_env(self, task_index):
+    def reset_env(self):
         pass
 
     @abstractmethod
@@ -109,15 +109,10 @@ class Environment(ABC):
     def get_num_programs(self):
         return len(self.programs)
 
-    def start_task(self, task_index):
-
-        task_name = self.get_program_from_index(task_index)
-        assert self.prog_to_precondition[task_name], 'cant start task {} ' \
-                                                     'because its precondition is not verified'.format(task_name)
+    def start_task(self):
         
         # Reset the environment and save the task initial state
-        self.current_task_index = task_index
-        self.reset_env(task_index)
+        self.reset_env()
         self.task_init_state = self.get_state()
 
         return self.get_observation()
@@ -126,7 +121,6 @@ class Environment(ABC):
         """
         Ends the last tasks that has been started.
         """
-        self.current_task_index = None
         self.has_been_reset = False
 
     def get_max_depth_from_level(self, level):
@@ -222,7 +216,8 @@ class Environment(ABC):
     def get_reward(self):
         task_init_state = self.task_init_state
         state = self.get_state()
-        current_task = self.get_program_from_index(self.current_task_index)
+        task_index = [v.get('index') for k, v in self.programs_library.items() if v.get("level") >= 1]
+        current_task = self.get_program_from_index(task_index[0])
         current_task_postcondition = self.prog_to_postcondition[current_task]
         return int(current_task_postcondition(task_init_state, state))
 

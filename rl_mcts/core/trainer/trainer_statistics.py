@@ -5,22 +5,17 @@ from collections import OrderedDict
 
 class MovingAverageStatistics():
 
-    def __init__(self, programs_library, moving_average=0.95):
+    def __init__(self, task_name, moving_average=0.95):
         
         self.moving_average = moving_average
         self.maximum_level = 1
 
-        self.task_name = [k for k,p in programs_library.items() if p['level'] == self.maximum_level][0]
-        self.task_index = [p['index'] for _,p in programs_library.items() if p['level'] == self.maximum_level][0]
+        self.task_name = task_name
 
         self.task_average_reward = 0
         self.task_average_cost = 0
         self.task_average_length = 0
         self.task_stats_update = 0
-
-    def get_task_index(self):
-
-        return self.task_index
 
     def print_statistics(self, string_out=False):
         '''

@@ -97,7 +97,7 @@ class MockEnv(EnvironmentSCM):
     def init_env(self):
         self.has_been_reset = True
 
-    def reset_env(self, task_index):
+    def reset_env(self):
         self.has_been_reset = True
 
         return 0, 0

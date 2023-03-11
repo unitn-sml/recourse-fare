@@ -86,7 +86,7 @@ class ArgumentsSingleNet(Module):
 
 class Policy(Module):
     def __init__(self, encoder, hidden_size, num_programs, encoding_dim,
-                types, learning_rate=1e-3, use_args=True, use_gpu=False):
+                types, learning_rate=1e-3, use_gpu=False):
 
         super().__init__()
 
@@ -107,8 +107,6 @@ class Policy(Module):
         self.lstm_args = LSTMCell(self.encoding_dim, self._hidden_size).to(self.device)
         self.critic = CriticNet(self._hidden_size).to(self.device)
         self.actor = ActorNet(self._hidden_size, self.num_programs).to(self.device)
-
-        self.use_args = use_args
 
         # Generate N decoders given the types and the type range
         self.arguments = ArgumentsNet(self._hidden_size, self.types).to(self.device)

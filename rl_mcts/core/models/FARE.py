@@ -37,11 +37,8 @@ class FARE:
         num_programs = env.get_num_programs()
         programs_library = env.programs_library
 
-        idx_tasks = [prog['index'] for key, prog in env.programs_library.items() if prog['level'] > 0]
-
         # Initialize the replay buffer. It is needed to store the various traces for training
         self.buffer = PrioritizedReplayBuffer(self.config.get("training").get("replay_buffer").get("size"),
-                                         idx_tasks,
                                          p1=self.config.get("training").get("replay_buffer").get("sampling_correct_probability")
                                          )
 
@@ -78,8 +75,6 @@ class FARE:
 
     def predict(self, X, verbose=False, full_output=False):
 
-        task_index = self.training_statistics.get_task_index()
-
         X, X_w = X[0].to_dict(orient='records'), X[1].to_dict(orient='records')
 
         counterfactuals = []
@@ -99,7 +94,7 @@ class FARE:
                 **self.config.get("environment").get("configuration_parameters", {})
             )
             mcts_validation = import_dyn_class(self.config.get("training").get("mcts").get("name"))(
-                env_validation, self.policy, task_index,
+                env_validation, self.policy,
                 **self.config.get("validation").get("mcts").get("configuration_parameters")
             )
 
@@ -120,8 +115,6 @@ class FARE:
             return pd.DataFrame.from_records(counterfactuals)
 
     def fit(self, X=None, max_iter=None, verbose=False):
-
-        task_index = self.training_statistics.get_task_index()
         
         max_iter = self.config.get("training").get("num_iterations") if not max_iter else max_iter
 
@@ -135,7 +128,7 @@ class FARE:
                     **self.config.get("environment").get("configuration_parameters", {})
                 )
                 mcts = import_dyn_class(self.config.get("training").get("mcts").get("name"))(
-                    env, self.policy, task_index,
+                    env, self.policy,
                     **self.config.get("training").get("mcts").get("configuration_parameters")
                 )
 
@@ -154,9 +147,6 @@ class FARE:
 
                 self.trainer.train_one_step(complete_traces)
 
-            # Get id of the current 
-            task_index = self.training_statistics.get_task_index()
-
             validation_rewards = []
             costs = []
             lengths = []
@@ -168,7 +158,7 @@ class FARE:
                     **self.config.get("environment").get("configuration_parameters", {})
                 )
                 mcts_validation = import_dyn_class(self.config.get("training").get("mcts").get("name"))(
-                    env_validation, self.trainer.policy, task_index,
+                    env_validation, self.trainer.policy,
                     **self.config.get("validation").get("mcts").get("configuration_parameters")
                 )
 

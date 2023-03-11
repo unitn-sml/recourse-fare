@@ -8,14 +8,13 @@ from typing import Union
 
 class MCTS:
     
-    def __init__(self, environment, policy, task_index: int, number_of_simulations: int=100, exploration=True,
+    def __init__(self, environment, policy, number_of_simulations: int=100, exploration=True,
                  dir_noise: float=0.03, dir_epsilon: float=0.3,
                  level_closeness_coeff: float=3.0, level_0_penalty: float=1, qvalue_temperature: float=1.0,
                  temperature: float=1.3, c_puct: float=0.5, gamma: float=0.97, action_cost_coeff: float=1.0,
                  action_duplicate_cost: float=1.0) -> None:
         self.env = environment
         self.policy = policy
-        self.task_index = task_index
         self.number_of_simulations = number_of_simulations
         self.exploration = exploration
         self.dir_epsilon = dir_noise
@@ -278,8 +277,6 @@ class MCTS:
 
                 # Sample next action
                 mcts_policy, args_policy, program_to_call_index, args_to_call_index = self._sample_policy(root_node)
-                if program_to_call_index == self.task_index:
-                    self.global_recursive_call = True
 
                 # Set new root node
                 root_node = [child for child in root_node.childs
@@ -319,13 +316,18 @@ class MCTS:
         # Clear from previous content
         self.empty_previous_trace()
 
-        init_observation = self.env.start_task(self.task_index)
+        task_index = [v.get('index') for k, v in self.env.programs_library.items() if v.get("level") >= 1]
+        assert len(task_index) == 1, "You have more than one task for which we can provide recourse. Please specify only one."
+        task_index = task_index[0]
+
+        init_observation = self.env.start_task()
         with torch.no_grad():
             state_h, state_c, state_h_args, state_c_args = self.policy.init_tensors()
             env_init_state = self.env.get_state()
 
             root = MCTSNode.initialize_root_args(
-                self.task_index, init_observation, env_init_state,
+                task_index,
+                init_observation, env_init_state,
                 state_h, state_c, state_h_args, state_c_args
             )
 

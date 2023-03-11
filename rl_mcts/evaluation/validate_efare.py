@@ -212,9 +212,7 @@ if __name__ == "__main__":
         if not args.single_core:
             env = comm.bcast(env, root=0)
 
-        idx = env.prog_to_idx["INTERVENE"]
-
-        env.start_task(idx)
+        env.start_task()
 
         max_depth = env.max_depth_dict.get(1)
 
