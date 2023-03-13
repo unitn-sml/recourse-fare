@@ -154,12 +154,11 @@ class MCTS:
         has_expanded_a_node = False
         failed_simulation = False
         value = None
-        program_level = self.env.get_program_level_from_index(node.program_index)
         total_node_expanded = 0
 
         while not stop and not max_depth_reached and not has_expanded_a_node and self.clean_sub_executions and not max_recursion_reached:
 
-            if node.depth >= self.env.get_max_depth_from_level(program_level):
+            if node.depth >= self.env.get_max_depth():
                 max_depth_reached = True
 
             elif len(node.childs) == 0:
@@ -207,10 +206,9 @@ class MCTS:
 
         while not stop and not max_depth_reached and not illegal_action and self.clean_sub_executions:
 
-            program_level = self.env.get_program_level_from_index(root_node.program_index)
             root_node.selected = True
 
-            if root_node.depth >= self.env.max_depth_dict[program_level]:
+            if root_node.depth >= self.env.get_max_depth():
                 max_depth_reached = True
 
             else:

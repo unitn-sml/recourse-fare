@@ -13,8 +13,7 @@ class PolicyOnly:
     def play(self, task_index):
         programs_called = []
 
-        task_level = self.env.get_program_level_from_index(task_index)
-        max_depth = self.max_depth_dict[task_level]
+        max_depth = self.max_depth_dict
         depth = 0
         wrong_program = False
         cost = []

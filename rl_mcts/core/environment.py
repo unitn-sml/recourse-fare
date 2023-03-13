@@ -123,11 +123,8 @@ class Environment(ABC):
         """
         self.has_been_reset = False
 
-    def get_max_depth_from_level(self, level):
-        if level in self.max_depth_dict:
-            return self.max_depth_dict[level]
-        else:
-            raise ValueError(f"Level {level} is not present in {self.max_depth_dict}")
+    def get_max_depth(self):
+        return self.max_depth_dict
 
     def _get_available_actions(self, program):
         level_prog = self.programs_library[program]["level"]
@@ -216,9 +213,7 @@ class Environment(ABC):
     def get_reward(self):
         task_init_state = self.task_init_state
         state = self.get_state()
-        task_index = [v.get('index') for k, v in self.programs_library.items() if v.get("level") >= 1]
-        current_task = self.get_program_from_index(task_index[0])
-        current_task_postcondition = self.prog_to_postcondition[current_task]
+        current_task_postcondition = self.prog_to_postcondition
         return int(current_task_postcondition(task_init_state, state))
 
     @abstractmethod

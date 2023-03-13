@@ -21,15 +21,14 @@ class MockEnv(EnvironmentSCM):
 
         self.prog_to_precondition = OrderedDict(sorted({'STOP': self._stop_precondition,
                                                         'ADD': self._add_precondition,
-                                                        'SUB': self._sub_precondition,
-                                                        'COUNT_10': self._count_10_precondition}.items()))
+                                                        'SUB': self._sub_precondition}.items()))
 
-        self.prog_to_postcondition = OrderedDict(sorted({'COUNT_10': self._count_10_postcondition}.items()))
+        self.prog_to_postcondition = self._count_10_postcondition
 
-        self.programs_library = OrderedDict(sorted({'STOP': {'level': -1, 'args': 'NONE'},
-                                               'ADD': {'level': 0, 'args': 'INT'},
-                                               'SUB': {'level': 0, 'args': 'INT'},
-                                               'COUNT_10': {'level': 1, 'args': 'NONE'}}.items()))
+        self.programs_library = OrderedDict(sorted({'STOP': {'index': 0, 'level': -1, 'args': 'NONE'},
+                                               'ADD': {'index': 1, 'level': 0, 'args': 'INT'},
+                                               'SUB': {'index': 2, 'level': 0, 'args': 'INT'},
+                                               'COUNT_10': {'index': 3, 'level': 1, 'args': 'NONE'}}.items()))
 
         self.arguments = OrderedDict(sorted({
             "INT": list(range(1,6)),
@@ -41,12 +40,7 @@ class MockEnv(EnvironmentSCM):
         for k, v in self.arguments.items():
             self.complete_arguments += v
 
-        self.arguments_index = {i: v for i, v in enumerate(self.complete_arguments)}
-
-        self.max_depth_dict = {1: 5}
-
-        for idx, key in enumerate(sorted(list(self.programs_library.keys()))):
-            self.programs_library[key]['index'] = idx
+        self.max_depth_dict = 5
 
         scm = StructuralCausalModel({
                 "x1": lambda n_samples: np.random.binomial(n=1,p=0.7,size=n_samples),
