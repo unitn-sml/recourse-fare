@@ -22,11 +22,25 @@ import pandas as pd
 # - An environment, which specify which actions are available
 # - ..?
 
-environment_config = {
-    "class_name": ""
+DEFAULT_MCTS_CONFIG = {
+        "exploration": True,
+        "number_of_simulations": 10,
+        "dir_epsilon": 0.03,
+        "dir_noise": 0.3,
+        "level_closeness_coeff": 3.0,
+        "level_0_penalty": 1.0,
+        "qvalue_temperature": 1.0,
+        "temperature": 1.3,
+        "c_puct": 0.5,
+        "gamma": 0.97
+    }
+
+DEFAULT_ENVIRONMENT_CONFIG = {
+    "class_name": "",
+    "additional_parameters": {}
 }
 
-policy = {
+DEFAULT_POLICY_CONFIG = {
     "observation_dim": 10,
     "encoding_dim": 10,
     "hidden_size": 40,
@@ -35,7 +49,9 @@ policy = {
 
 class FARE:
 
-    def __init__(self, policy_config, environment_config, mcts_config,
+    def __init__(self, policy_config=DEFAULT_POLICY_CONFIG,
+                 environment_config=DEFAULT_ENVIRONMENT_CONFIG,
+                 mcts_config=DEFAULT_MCTS_CONFIG,
                  batch_size=50,
                  training_buffer_size=200, training_buffer_sample_error=0.8) -> None:
 
@@ -90,7 +106,9 @@ class FARE:
         costs = []
         for i in tqdm(range(len(X))):
 
-            env_validation = import_dyn_class(self.environment_config.get("class_name"))(X[i].copy())
+            env_validation = import_dyn_class(self.environment_config.get("class_name"))(
+                X[i].copy(),
+                **self.environment_config.get("additional_parameters"))
             mcts_validation = MCTS(
                 env_validation, self.policy,
                 **self.mcts_config
@@ -127,7 +145,10 @@ class FARE:
                 features = features.to_dict(orient='records')[0]
 
                 mcts = MCTS(
-                    import_dyn_class(self.environment_config.get("class_name"))(features.copy()), 
+                    import_dyn_class(self.environment_config.get("class_name"))(
+                        features.copy(),
+                        **self.environment_config.get("additional_parameters")
+                        ), 
                     self.policy,
                     **self.mcts_config
                 )
@@ -155,7 +176,10 @@ class FARE:
                 features = X.sample(1)
                 features = features.to_dict(orient='records')[0]
 
-                env = import_dyn_class(self.environment_config.get("class_name"))(features.copy())
+                env = import_dyn_class(self.environment_config.get("class_name"))(
+                    features.copy(),
+                    **self.environment_config.get("additional_parameters")
+                    )
                 mcts = MCTS(
                     env, 
                     self.trainer.policy,
