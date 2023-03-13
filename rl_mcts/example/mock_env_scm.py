@@ -4,31 +4,11 @@ from collections import OrderedDict
 from causalgraphicalmodels import StructuralCausalModel
 
 import numpy as np
-import random
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
-class MockEnvEncoder(nn.Module):
-    '''
-    Implement an encoder (f_enc) specific to the List environment. It encodes observations e_t into
-    vectors s_t of size D = encoding_dim.
-    '''
-
-    def __init__(self, observation_dim, encoding_dim=20):
-        super(MockEnvEncoder, self).__init__()
-        self.l1 = nn.Linear(observation_dim, encoding_dim)
-        self.l2 = nn.Linear(encoding_dim, encoding_dim)
-
-    def forward(self, x):
-        x = F.relu(self.l1(x))
-        x = torch.tanh(self.l2(x))
-        return x
 
 class MockEnv(EnvironmentSCM):
 
-    def __init__(self, f, w, config_args=None):
+    def __init__(self, f, config_args=None):
 
         self.program_feature_mapping = {
             "ADD": lambda x: f"x{x}",
@@ -84,7 +64,7 @@ class MockEnv(EnvironmentSCM):
             "x5": {"x2": 2, "x3": 1.2, "x4": -0.3},
         }
 
-        super().__init__(f, w, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
+        super().__init__(f, None, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
                          self.programs_library, self.arguments, self.max_depth_dict,
                          complete_arguments=self.complete_arguments,
                          scm=scm,

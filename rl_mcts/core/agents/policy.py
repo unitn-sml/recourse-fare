@@ -7,6 +7,18 @@ import numpy as np
 
 from rl_mcts.core.utils.anomaly_detection import BetterAnomalyDetection
 
+class PolicyEncoder(nn.Module):
+
+    def __init__(self, observation_dim, encoding_dim=20):
+        super(PolicyEncoder, self).__init__()
+        self.l1 = nn.Linear(observation_dim, encoding_dim)
+        self.l2 = nn.Linear(encoding_dim, encoding_dim)
+
+    def forward(self, x):
+        x = F.relu(self.l1(x))
+        x = torch.tanh(self.l2(x))
+        return x
+
 class CriticNet(Module):
     def __init__(self, hidden_size):
         super(CriticNet, self).__init__()
@@ -85,7 +97,7 @@ class ArgumentsSingleNet(Module):
 
 
 class Policy(Module):
-    def __init__(self, encoder, hidden_size, num_programs, encoding_dim,
+    def __init__(self, observation_dim, encoding_dim, hidden_size, num_programs,
                 types, learning_rate=1e-3, use_gpu=False):
 
         super().__init__()
@@ -101,7 +113,8 @@ class Policy(Module):
         self.encoding_dim = encoding_dim
 
         # Initialize networks
-        self.encoder = encoder.to(self.device)
+        self.encoder = PolicyEncoder(observation_dim, encoding_dim)
+        self.encoder = self.encoder.to(self.device)
 
         self.lstm = LSTMCell(self.encoding_dim, self._hidden_size).to(self.device)
         self.lstm_args = LSTMCell(self.encoding_dim, self._hidden_size).to(self.device)

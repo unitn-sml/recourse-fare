@@ -12,7 +12,7 @@ class Trainer:
         self.num_updates_per_episode = num_updates_per_episode
         self.num_validation_episodes = num_validation_episodes
 
-        self.validation_mcts_class = import_dyn_class(mcts_validation_class)
+        self.validation_mcts_class = mcts_validation_class
 
     def train_one_step(self, traces):
 
