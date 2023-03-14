@@ -81,9 +81,8 @@ class Environment(ABC):
     def get_observation(self):
         pass
 
-    @abstractmethod
     def get_state(self):
-        pass
+        return self.features
 
     def reset_env(self):
         self.has_been_reset = True

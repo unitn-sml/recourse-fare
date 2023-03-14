@@ -8,14 +8,14 @@ import pandas as pd
 class EnvironmentSCM(Environment):
     """Environment which uses an SCM to compute the results."""
 
-    def __init__(self, features, weights, prog_to_func, prog_to_precondition,
+    def __init__(self, features, model, prog_to_func, prog_to_precondition,
                  prog_to_postcondition,
                  programs_library, arguments, max_depth_dict, prog_to_cost=None,
                  custom_tensorboard_metrics=None,
                  program_feature_mapping: dict= None,
                  scm: StructuralCausalModel=None, A:np.array=None):
 
-        super().__init__(features, weights, prog_to_func, prog_to_precondition,
+        super().__init__(features, model, prog_to_func, prog_to_precondition,
                          prog_to_postcondition,
                          programs_library, arguments,
                          max_depth_dict, prog_to_cost,
