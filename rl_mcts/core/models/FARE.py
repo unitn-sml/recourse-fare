@@ -138,7 +138,7 @@ class FARE:
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def fit(self, X, y, max_iter=1000, max_failed_examples=200, sample_from_failed=0.0, verbose=False):
+    def fit(self, X, max_iter=1000, max_failed_examples=200, sample_from_failed=0.0, verbose=False):
 
         failed_examples = []
 
