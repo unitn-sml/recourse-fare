@@ -94,7 +94,7 @@ class FARE:
         self.trainer = Trainer(self.policy, self.buffer, MCTS, batch_size=self.batch_size)
 
         # Set up the curriculum statistics that decides the next experiments to be done
-        self.training_statistics = MovingAverageStatistics(moving_average=0.97)
+        self.training_statistics = MovingAverageStatistics(moving_average=0.99)
 
     def save(self, save_model_path="."):
         torch.save(self.policy.state_dict(), save_model_path)
@@ -134,80 +134,79 @@ class FARE:
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def fit(self, X, y, max_iter=None, verbose=False):
+    def fit(self, X, y, max_iter=1000, verbose=False):
 
         failed_examples = []
 
         # Initialize the various objects needed to train FARE
         self._init_training_objects()
 
-        for iteration in tqdm(range(max_iter), desc="Train FARE", disable=verbose):
-            
-            for episode in range(10):
-                
-                features = X.sample(1)
-                features = features.to_dict(orient='records')[0]
+        for iteration in tqdm(range(1, max_iter+1), desc="Train FARE", disable=verbose):
+                            
+            features = X.sample(1)
+            features = features.to_dict(orient='records')[0]
 
-                mcts = MCTS(
-                    import_dyn_class(self.environment_config.get("class_name"))(
-                        features.copy(),
-                        self.model,
-                        **self.environment_config.get("additional_parameters")
-                        ), 
-                    self.policy,
-                    **self.mcts_config
-                )
-
-                traces, root_node, node_expanded = mcts.sample_intervention()
-                traces = [[features, traces]]
-                node_expanded = [node_expanded]
-
-                # Save the failed traces inside the buffer and train only
-                # over the successful ones.
-                complete_traces = []
-                for trace_feature, trace in traces:
-                    if trace.task_reward < 0:
-                        failed_examples.append(trace_feature)
-                    else:
-                        complete_traces.append(trace)
-
-                self.trainer.train_one_step(complete_traces)
-
-            validation_rewards = []
-            costs = []
-            lengths = []
-            for _ in range(self.trainer.num_validation_episodes):
-
-                features = X.sample(1)
-                features = features.to_dict(orient='records')[0]
-
-                env = import_dyn_class(self.environment_config.get("class_name"))(
+            mcts = MCTS(
+                import_dyn_class(self.environment_config.get("class_name"))(
                     features.copy(),
                     self.model,
                     **self.environment_config.get("additional_parameters")
+                    ), 
+                self.policy,
+                **self.mcts_config
+            )
+
+            traces, root_node, node_expanded = mcts.sample_intervention()
+            traces = [[features, traces]]
+            node_expanded = [node_expanded]
+
+            # Save the failed traces inside the buffer and train only
+            # over the successful ones.
+            complete_traces = []
+            for trace_feature, trace in traces:
+                if trace.task_reward < 0:
+                    failed_examples.append(trace_feature)
+                else:
+                    complete_traces.append(trace)
+
+            self.trainer.train_one_step(complete_traces)
+
+            if iteration % 10 == 0 and verbose:
+
+                validation_rewards = []
+                costs = []
+                lengths = []
+                for _ in range(self.trainer.num_validation_episodes):
+
+                    features = X.sample(1)
+                    features = features.to_dict(orient='records')[0]
+
+                    env = import_dyn_class(self.environment_config.get("class_name"))(
+                        features.copy(),
+                        self.model,
+                        **self.environment_config.get("additional_parameters")
+                        )
+                    mcts = MCTS(
+                        env, 
+                        self.trainer.policy,
+                        **self.mcts_config
                     )
-                mcts = MCTS(
-                    env, 
-                    self.trainer.policy,
-                    **self.mcts_config
-                )
-                mcts.exploration = False
+                    mcts.exploration = False
 
-                # Sample an execution trace with mcts using policy as a prior
-                trace, root_node, _ = mcts.sample_intervention()
-                task_reward = trace.task_reward
+                    # Sample an execution trace with mcts using policy as a prior
+                    trace, root_node, _ = mcts.sample_intervention()
+                    task_reward = trace.task_reward
 
-                cost, _ = get_cost_from_tree(env, root_node)
-                costs.append(cost)
-                lengths.append(len(trace.previous_actions[1:]))
+                    cost, _ = get_cost_from_tree(env, root_node)
+                    costs.append(cost)
+                    lengths.append(len(trace.previous_actions[1:]))
 
-                validation_rewards.append(task_reward)
+                    validation_rewards.append(task_reward)
 
-            # Update the statistics
-            self.training_statistics.update_statistics(validation_rewards, costs, lengths)
+                # Update the statistics
+                self.training_statistics.update_statistics(validation_rewards, costs, lengths)
 
-            if verbose:
-                print(f"[*] Iteration {(iteration+1)*(self.config.get('training').get('num_episodes_per_iteration'))} / Buffer Size: {self.buffer.get_total_successful_traces()} / {self.training_statistics.print_statistics(string_out=True)}")
+                print(f"[*] Iteration {iteration} / Buffer Size: {self.buffer.get_total_successful_traces()} / {self.training_statistics.print_statistics(string_out=True)}")
     
         # Copy the trainer policy to the object policy 
         self.policy = self.trainer.policy
