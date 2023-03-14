@@ -179,7 +179,7 @@ class FARE:
                 # Update the statistics
                 self.training_statistics.update_statistics(validation_rewards, costs, lengths)
 
-                print(f"[*] Iteration {iteration} / Buffer Size: {self.buffer.get_total_successful_traces()} / {self.training_statistics.print_statistics(string_out=True)}")
+                print(f"[*] Iteration {iteration} / Buffer Size: {self.buffer.get_memory_length()} / {self.training_statistics.print_statistics(string_out=True)}")
     
         # Copy the trainer policy to the object policy 
         self.policy = self.trainer.policy
