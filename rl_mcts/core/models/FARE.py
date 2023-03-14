@@ -11,16 +11,6 @@ import torch
 from tqdm import tqdm
 
 import pandas as pd
-import numpy as np
-
-# The class must take as input:
-# - The user features X
-#   > Features might be also the user costs A for the causal graph
-#   > We might also have a problem to integrate this with the environment
-# - The model predictions Y
-# - A pre-trained black-box model (it can work with any model)
-# - An environment, which specify which actions are available
-# - ..?
 
 DEFAULT_MCTS_CONFIG = {
         "exploration": True,
