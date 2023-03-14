@@ -119,6 +119,9 @@ class FARE:
                 **self.mcts_config
             )
 
+            mcts_validation.exploration = False
+            mcts_validation.number_of_simulations = 5
+
             # Sample an execution trace with mcts using policy as a prior
             trace, root_node, _ = mcts_validation.sample_intervention()
             task_reward = trace.task_reward

@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     # Train a FARE model given the previous configurations
     model = FARE(model, policy_config, environment_config, mcts_config)
-    model.fit(X_train, y_train, max_iter=500, verbose=False)
+    model.fit(X_train, y_train, max_iter=10, verbose=False)
     
     # We save the trained FARE model to disc
     model.save("fare.pth")
