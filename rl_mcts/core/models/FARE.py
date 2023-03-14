@@ -7,11 +7,11 @@ from rl_mcts.core.trainer.trainer_statistics import MovingAverageStatistics
 from rl_mcts.core.agents.policy import Policy
 
 import torch
-import yaml
 
 from tqdm import tqdm
 
 import pandas as pd
+import numpy as np
 
 # The class must take as input:
 # - The user features X
@@ -138,7 +138,7 @@ class FARE:
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def fit(self, X, y, max_iter=1000, verbose=False):
+    def fit(self, X, y, max_iter=1000, max_failed_examples=200, sample_from_failed=0.0, verbose=False):
 
         failed_examples = []
 
@@ -146,9 +146,12 @@ class FARE:
         self._init_training_objects()
 
         for iteration in tqdm(range(1, max_iter+1), desc="Train FARE", disable=verbose):
-                            
-            features = X.sample(1)
-            features = features.to_dict(orient='records')[0]
+
+            if np.random.rand() <= sample_from_failed and len(failed_examples) > 0:
+                features = failed_examples.pop()
+            else:       
+                features = X.sample(1)
+                features = features.to_dict(orient='records')[0]
 
             mcts = MCTS(
                 import_dyn_class(self.environment_config.get("class_name"))(
@@ -161,7 +164,7 @@ class FARE:
             )
 
             traces, root_node, node_expanded = mcts.sample_intervention()
-            traces = [[features, traces]]
+            traces = [[features.copy(), traces]]
             node_expanded = [node_expanded]
 
             # Save the failed traces inside the buffer and train only
@@ -169,6 +172,8 @@ class FARE:
             complete_traces = []
             for trace_feature, trace in traces:
                 if trace.task_reward < 0:
+                    if len(failed_examples) >= max_failed_examples:
+                        failed_examples.pop()
                     failed_examples.append(trace_feature)
                 else:
                     complete_traces.append(trace)

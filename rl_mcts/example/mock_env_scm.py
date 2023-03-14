@@ -9,7 +9,7 @@ import torch
 
 class MockEnv(EnvironmentSCM):
 
-    def __init__(self, f, model, preprocessing):
+    def __init__(self, features, model, preprocessing):
 
         self.program_feature_mapping = {
             "ADD": lambda x: f"x{x}",
@@ -57,7 +57,7 @@ class MockEnv(EnvironmentSCM):
             "x5": {"x2": 2, "x3": 1.2, "x4": -0.3},
         }
 
-        super().__init__(f, model, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
+        super().__init__(features, model, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
                          self.programs_library, self.arguments, self.max_depth_dict,
                          scm=scm,
                          A=A,
