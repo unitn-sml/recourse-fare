@@ -11,7 +11,6 @@ class EnvironmentSCM(Environment):
     def __init__(self, features, weights, prog_to_func, prog_to_precondition,
                  prog_to_postcondition,
                  programs_library, arguments, max_depth_dict, prog_to_cost=None,
-                 complete_arguments=None,
                  custom_tensorboard_metrics=None,
                  program_feature_mapping: dict= None,
                  scm: StructuralCausalModel=None, A:np.array=None):
@@ -19,7 +18,7 @@ class EnvironmentSCM(Environment):
         super().__init__(features, weights, prog_to_func, prog_to_precondition,
                          prog_to_postcondition,
                          programs_library, arguments,
-                         max_depth_dict, prog_to_cost, complete_arguments,
+                         max_depth_dict, prog_to_cost,
                          custom_tensorboard_metrics)
         
         self.program_feature_mapping = program_feature_mapping

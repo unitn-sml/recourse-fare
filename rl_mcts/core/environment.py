@@ -7,11 +7,11 @@ import torch
 
 class Environment(ABC):
 
-    def __init__(self, features, weights, prog_to_func, prog_to_precondition, prog_to_postcondition, programs_library, arguments,
-                 max_depth_dict, prog_to_cost=None, complete_arguments=None, custom_tensorboard_metrics=None):
+    def __init__(self, features, model, prog_to_func, prog_to_precondition, prog_to_postcondition, programs_library, arguments,
+                 max_depth_dict, prog_to_cost=None, custom_tensorboard_metrics=None):
 
-        self.weights = weights
         self.features = features
+        self.model = model
 
         self.prog_to_func = prog_to_func
         self.prog_to_precondition = prog_to_precondition
@@ -35,7 +35,7 @@ class Environment(ABC):
         self.tasks_list = []
 
         self.arguments = arguments
-        self.complete_arguments = complete_arguments
+        self.complete_arguments = sum([v for k, v in self.arguments.items()], [])
 
         if custom_tensorboard_metrics is None:
             custom_tensorboard_metrics = {}
@@ -85,17 +85,15 @@ class Environment(ABC):
     def get_state(self):
         pass
 
-    @abstractmethod
     def reset_env(self):
-        pass
+        self.has_been_reset = True
+        return 0, 0
 
-    @abstractmethod
     def init_env(self):
-        pass
+        self.has_been_reset = True
 
-    @abstractmethod
     def get_obs_dimension(self):
-        pass
+        return len(self.get_observation())
 
     @abstractmethod
     def reset_to_state(self, state) -> None:
@@ -177,11 +175,15 @@ class Environment(ABC):
 
         program = self.get_program_from_index(program_index)
         permitted_arguments = self.programs_library[program]["args"]
-        mask = np.zeros(len(self.arguments))
-        for i in range(len(self.arguments)):
-            if sum(self.arguments[i]) in permitted_arguments:
-                mask[i] = 1
-        return mask
+
+        mask = []
+        for k, r in self.arguments.items():
+            if k == permitted_arguments:
+                mask.append(np.ones(len(r)))
+            else:
+                mask.append(np.zeros(len(r)))
+
+        return np.concatenate(mask, axis=None)
 
     def can_be_called(self, program_index, args_index):
         program = self.get_program_from_index(program_index)
@@ -216,13 +218,14 @@ class Environment(ABC):
         current_task_postcondition = self.prog_to_postcondition
         return int(current_task_postcondition(task_init_state, state))
 
-    @abstractmethod
     def get_additional_parameters(self):
         return {}
 
     def get_state_str(self, state):
         return ""
 
-    @abstractmethod
     def compare_state(self, state_a, state_b):
-        pass
+        return state_a == state_b
+
+    def get_stop_action_index(self):
+        return self.programs_library["STOP"]["index"]

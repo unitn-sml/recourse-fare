@@ -49,11 +49,14 @@ DEFAULT_POLICY_CONFIG = {
 
 class FARE:
 
-    def __init__(self, policy_config=DEFAULT_POLICY_CONFIG,
+    def __init__(self, model, policy_config=DEFAULT_POLICY_CONFIG,
                  environment_config=DEFAULT_ENVIRONMENT_CONFIG,
                  mcts_config=DEFAULT_MCTS_CONFIG,
                  batch_size=50,
                  training_buffer_size=200, training_buffer_sample_error=0.8) -> None:
+
+        # Black-box model we want to use
+        self.model = model
 
         self.batch_size = batch_size
         self.training_buffer_size = training_buffer_size
@@ -108,6 +111,7 @@ class FARE:
 
             env_validation = import_dyn_class(self.environment_config.get("class_name"))(
                 X[i].copy(),
+                self.model,
                 **self.environment_config.get("additional_parameters"))
             mcts_validation = MCTS(
                 env_validation, self.policy,
@@ -147,6 +151,7 @@ class FARE:
                 mcts = MCTS(
                     import_dyn_class(self.environment_config.get("class_name"))(
                         features.copy(),
+                        self.model,
                         **self.environment_config.get("additional_parameters")
                         ), 
                     self.policy,
@@ -178,6 +183,7 @@ class FARE:
 
                 env = import_dyn_class(self.environment_config.get("class_name"))(
                     features.copy(),
+                    self.model,
                     **self.environment_config.get("additional_parameters")
                     )
                 mcts = MCTS(

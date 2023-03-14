@@ -8,7 +8,7 @@ import torch
 
 class MockEnv(EnvironmentSCM):
 
-    def __init__(self, f, config_args=None):
+    def __init__(self, f, model):
 
         self.program_feature_mapping = {
             "ADD": lambda x: f"x{x}",
@@ -35,11 +35,6 @@ class MockEnv(EnvironmentSCM):
             "NONE": [0]
         }.items()))
 
-        self.complete_arguments = []
-
-        for k, v in self.arguments.items():
-            self.complete_arguments += v
-
         self.max_depth_dict = 5
 
         scm = StructuralCausalModel({
@@ -58,29 +53,14 @@ class MockEnv(EnvironmentSCM):
             "x5": {"x2": 2, "x3": 1.2, "x4": -0.3},
         }
 
-        super().__init__(f, None, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
+        super().__init__(f, model, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
                          self.programs_library, self.arguments, self.max_depth_dict,
-                         complete_arguments=self.complete_arguments,
                          scm=scm,
                          A=A,
                          program_feature_mapping=self.program_feature_mapping)
         
     def get_feature_name(self, program_name: str, arguments) -> str:
         return self.program_feature_mapping.get(program_name, None)(arguments)
-
-    def init_env(self):
-        self.has_been_reset = True
-
-    def reset_env(self):
-        self.has_been_reset = True
-
-        return 0, 0
-
-    def reset_to_state(self, state):
-        self.features = state
-
-    def get_stop_action_index(self):
-        return self.programs_library["STOP"]["index"]
 
     def _stop(self, arguments=None):
         return True
@@ -104,10 +84,7 @@ class MockEnv(EnvironmentSCM):
         return True
 
     def _count_10_postcondition(self, init_state, current_state):
-        # TODO: testing only!!!! Change this!!!! It will return always true to facilitate testing.
-        #return True
-        prev_sum = np.sum([init_state.get(k) for k in init_state.keys()])
-        return np.sum([self.features.get(k) for k in self.features.keys()]) > 7 and prev_sum < 7 
+        return self.model(self.features) > 7
 
     def get_observation(self):
         current_val = [self.features.get(k) for k in self.features.keys()]
@@ -115,44 +92,11 @@ class MockEnv(EnvironmentSCM):
 
     def get_state(self):
         return self.features.copy()
-
-    def get_obs_dimension(self):
-        return len(self.get_observation())
-
-    def compare_state(self, state_a, state_b):
-        return state_a == state_b
-
-    def get_mask_over_args(self, program_index):
-        """
-        Return the available arguments which can be called by that given program
-        :param program_index: the program index
-        :return: a max over the available arguments
-        """
-
-        program = self.get_program_from_index(program_index)
-        permitted_arguments = self.programs_library[program]["args"]
-
-        mask = []
-        for k, r in self.arguments.items():
-            if k == permitted_arguments:
-                mask.append(np.ones(len(r)))
-            else:
-                mask.append(np.zeros(len(r)))
-
-        return np.concatenate(mask, axis=None)
+    
+    def reset_to_state(self, state):
+        self.features = state
 
     def get_additional_parameters(self):
         return {
             "types": self.arguments
         }
-
-if __name__ == "__main__":
-
-    env = MockEnv()
-
-    env.init_env()
-    print(env.memory)
-    print(env._count_10_postcondition(None, None))
-    env._add()
-    print(env.memory)
-    print(env._count_10_postcondition(None, None))

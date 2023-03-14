@@ -5,6 +5,10 @@ from sklearn.model_selection import train_test_split
 from rl_mcts.core.models.FARE import FARE
 
 import pandas as pd
+import numpy as np
+
+def model(features):
+    return np.sum([features.get(k) for k in features.keys()])
 
 if __name__ == "__main__":
 
@@ -42,7 +46,7 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2023)
 
     # Train a FARE model given the previous configurations
-    model = FARE(policy_config, environment_config, mcts_config)
+    model = FARE(model, policy_config, environment_config, mcts_config)
     model.fit(X_train, y_train, max_iter=2, verbose=False)
     
     # We save the trained FARE model to disc
