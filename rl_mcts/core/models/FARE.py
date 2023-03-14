@@ -53,17 +53,21 @@ class FARE:
                  environment_config=DEFAULT_ENVIRONMENT_CONFIG,
                  mcts_config=DEFAULT_MCTS_CONFIG,
                  batch_size=50,
-                 training_buffer_size=200, training_buffer_sample_error=0.8) -> None:
+                 training_buffer_size=200,
+                 sample_error_probab=0.1,
+                 validation_steps = 10) -> None:
 
         # Black-box model we want to use
         self.model = model
 
         self.batch_size = batch_size
         self.training_buffer_size = training_buffer_size
-        self.training_buffer_sample_error = training_buffer_sample_error
+        self.training_buffer_sample_error = sample_error_probab
 
         self.mcts_config = mcts_config
         self.environment_config = environment_config
+
+        self.validation_steps = validation_steps
 
         env = import_dyn_class(environment_config.get("class_name"))(None, None,
                                                                      **self.environment_config.get("additional_parameters"))
@@ -100,7 +104,7 @@ class FARE:
     def save(self, save_model_path="."):
         torch.save(self.policy.state_dict(), save_model_path)
 
-    def predict(self, X, full_output=False):
+    def predict(self, X, full_output=False, verbose=False):
 
         X = X.to_dict(orient='records')
 
@@ -108,7 +112,7 @@ class FARE:
         Y = []
         traces = []
         costs = []
-        for i in tqdm(range(len(X))):
+        for i in tqdm(range(len(X)), disable=not verbose):
 
             env_validation = import_dyn_class(self.environment_config.get("class_name"))(
                 X[i].copy(),
@@ -138,20 +142,15 @@ class FARE:
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def fit(self, X, max_iter=1000, max_failed_examples=200, sample_from_failed=0.0, verbose=False):
-
-        failed_examples = []
+    def fit(self, X, max_iter=1000, verbose=False):
 
         # Initialize the various objects needed to train FARE
         self._init_training_objects()
 
         for iteration in tqdm(range(1, max_iter+1), desc="Train FARE", disable=verbose):
 
-            if np.random.rand() <= sample_from_failed and len(failed_examples) > 0:
-                features = failed_examples.pop()
-            else:       
-                features = X.sample(1)
-                features = features.to_dict(orient='records')[0]
+            features = X.sample(1)
+            features = features.to_dict(orient='records')[0]
 
             mcts = MCTS(
                 import_dyn_class(self.environment_config.get("class_name"))(
@@ -164,53 +163,18 @@ class FARE:
             )
 
             traces, root_node, node_expanded = mcts.sample_intervention()
-            traces = [[features.copy(), traces]]
-            node_expanded = [node_expanded]
 
-            # Save the failed traces inside the buffer and train only
-            # over the successful ones.
-            complete_traces = []
-            for trace_feature, trace in traces:
-                if trace.task_reward < 0:
-                    if len(failed_examples) >= max_failed_examples:
-                        failed_examples.pop()
-                    failed_examples.append(trace_feature)
-                else:
-                    complete_traces.append(trace)
+            # Run one optimization step within the trainer
+            self.trainer.train_one_step([traces])
 
-            self.trainer.train_one_step(complete_traces)
+            if iteration % self.validation_steps == 0 and verbose:
 
-            if iteration % 10 == 0 and verbose:
+                self.policy = self.trainer.policy
 
-                validation_rewards = []
-                costs = []
-                lengths = []
-                for _ in range(self.trainer.num_validation_episodes):
-
-                    features = X.sample(1)
-                    features = features.to_dict(orient='records')[0]
-
-                    env = import_dyn_class(self.environment_config.get("class_name"))(
-                        features.copy(),
-                        self.model,
-                        **self.environment_config.get("additional_parameters")
-                        )
-                    mcts = MCTS(
-                        env, 
-                        self.trainer.policy,
-                        **self.mcts_config
-                    )
-                    mcts.exploration = False
-
-                    # Sample an execution trace with mcts using policy as a prior
-                    trace, root_node, _ = mcts.sample_intervention()
-                    task_reward = trace.task_reward
-
-                    cost, _ = get_cost_from_tree(env, root_node)
-                    costs.append(cost)
-                    lengths.append(len(trace.previous_actions[1:]))
-
-                    validation_rewards.append(task_reward)
+                _, validation_rewards, traces, costs = self.predict(
+                    X.sample(self.trainer.num_validation_episodes),
+                    full_output=True)
+                lengths = [len(trace) for trace in traces]
 
                 # Update the statistics
                 self.training_statistics.update_statistics(validation_rewards, costs, lengths)
