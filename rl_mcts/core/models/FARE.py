@@ -65,7 +65,8 @@ class FARE:
         self.mcts_config = mcts_config
         self.environment_config = environment_config
 
-        env = import_dyn_class(environment_config.get("class_name"))(None, None)
+        env = import_dyn_class(environment_config.get("class_name"))(None, None,
+                                                                     **self.environment_config.get("additional_parameters"))
 
         num_programs = env.get_num_programs()
         additional_arguments_from_env = env.get_additional_parameters()

@@ -4,11 +4,12 @@ from collections import OrderedDict
 from causalgraphicalmodels import StructuralCausalModel
 
 import numpy as np
+import pandas as pd
 import torch
 
 class MockEnv(EnvironmentSCM):
 
-    def __init__(self, f, model):
+    def __init__(self, f, model, preprocessing):
 
         self.program_feature_mapping = {
             "ADD": lambda x: f"x{x}",
@@ -36,6 +37,9 @@ class MockEnv(EnvironmentSCM):
         }.items()))
 
         self.max_depth_dict = 5
+
+        self.preprocessing = preprocessing
+        self.feature_ordering_prep = list(self.preprocessing.feature_names_in_)
 
         scm = StructuralCausalModel({
                 "x1": lambda n_samples: np.random.binomial(n=1,p=0.7,size=n_samples),
@@ -87,8 +91,10 @@ class MockEnv(EnvironmentSCM):
         return self.model(self.features) > 7
 
     def get_observation(self):
-        current_val = [self.features.get(k) for k in self.features.keys()]
-        return torch.FloatTensor(np.array(current_val))
+        return torch.FloatTensor(
+            self.preprocessing.transform(
+            pd.DataFrame.from_records([{k:self.features.get(k) for k in self.feature_ordering_prep}])
+        ))
 
     def get_state(self):
         return self.features.copy()
