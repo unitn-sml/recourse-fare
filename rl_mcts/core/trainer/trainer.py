@@ -4,15 +4,12 @@ import numpy as np
 
 class Trainer:
 
-    def __init__(self, policy, buffer, mcts_validation_class, batch_size=50, num_updates_per_episode=5, num_validation_episodes=10):
+    def __init__(self, policy, buffer, batch_size=50, num_updates_per_episode=5):
 
         self.policy = policy
         self.buffer = buffer
         self.batch_size = batch_size
         self.num_updates_per_episode = num_updates_per_episode
-        self.num_validation_episodes = num_validation_episodes
-
-        self.validation_mcts_class = mcts_validation_class
 
     def train_one_step(self, traces):
 

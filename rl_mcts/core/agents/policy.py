@@ -8,6 +8,9 @@ import numpy as np
 from rl_mcts.core.utils.anomaly_detection import BetterAnomalyDetection
 
 class PolicyEncoder(nn.Module):
+    """ This class implements a simple MLP which encodes the action policies,
+    given the output from the controller. 
+    """
 
     def __init__(self, observation_dim, encoding_dim=20):
         super(PolicyEncoder, self).__init__()

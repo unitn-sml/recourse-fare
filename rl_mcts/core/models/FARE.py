@@ -8,7 +8,7 @@ from rl_mcts.core.agents.policy import Policy
 
 import torch
 
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 import pandas as pd
 
@@ -74,10 +74,6 @@ class FARE:
             **additional_arguments_from_env
         )
 
-        # Load the policy from a pretrained FARE model
-        if policy_config.get("model_path"):
-            self.policy.load_state_dict(torch.load(policy_config.get("model_path")))
-
     def _init_training_objects(self) -> None:
 
         # Initialize the replay buffer. It is needed to store the various traces for training
@@ -86,13 +82,21 @@ class FARE:
                                             )
 
         # Set up the trainer algorithm
-        self.trainer = Trainer(self.policy, self.buffer, MCTS, batch_size=self.batch_size)
+        self.trainer = Trainer(self.policy, self.buffer, batch_size=self.batch_size)
 
         # Set up the curriculum statistics that decides the next experiments to be done
         self.training_statistics = MovingAverageStatistics(moving_average=0.99)
 
-    def save(self, save_model_path="."):
+    def save(self, save_model_path :str="."):
         torch.save(self.policy.state_dict(), save_model_path)
+
+    def load(self, load_model_path :str=".") -> None:
+        """Load a pretrained FARE model from a file.
+
+        :param load_model_path: path to the file, defaults to "."
+        :type load_model_path: str, optional
+        """
+        self.policy.load_state_dict(torch.load(load_model_path))
 
     def predict(self, X, full_output=False, verbose=False):
 
@@ -137,39 +141,45 @@ class FARE:
         # Initialize the various objects needed to train FARE
         self._init_training_objects()
 
-        for iteration in tqdm(range(1, max_iter+1), desc="Train FARE", disable=verbose):
+        with tqdm(range(1, max_iter+1), desc="Train FARE", disable=verbose) as t:
+            for iteration in t:
 
-            features = X.sample(1)
-            features = features.to_dict(orient='records')[0]
+                t.set_description(
+                    f"Train (Acc={float(self.training_statistics.print_statistics(string_out=True)):.3f}/Buff={self.buffer.get_memory_length()})"
+                )
 
-            mcts = MCTS(
-                import_dyn_class(self.environment_config.get("class_name"))(
-                    features.copy(),
-                    self.model,
-                    **self.environment_config.get("additional_parameters")
-                    ), 
-                self.policy,
-                **self.mcts_config
-            )
+                features = X.sample(1)
+                features = features.to_dict(orient='records')[0]
 
-            traces, root_node, node_expanded = mcts.sample_intervention()
+                mcts = MCTS(
+                    import_dyn_class(self.environment_config.get("class_name"))(
+                        features.copy(),
+                        self.model,
+                        **self.environment_config.get("additional_parameters")
+                        ), 
+                    self.policy,
+                    **self.mcts_config
+                )
 
-            # Run one optimization step within the trainer
-            self.trainer.train_one_step([traces])
+                traces, root_node, node_expanded = mcts.sample_intervention()
 
-            if iteration % self.validation_steps == 0 and verbose:
+                # Run one optimization step within the trainer
+                self.trainer.train_one_step([traces])
 
-                self.policy = self.trainer.policy
+                if iteration % self.validation_steps == 0:
 
-                _, validation_rewards, traces, costs = self.predict(
-                    X.sample(self.trainer.num_validation_episodes),
-                    full_output=True)
-                lengths = [len(trace) for trace in traces]
+                    self.policy = self.trainer.policy
 
-                # Update the statistics
-                self.training_statistics.update_statistics(validation_rewards, costs, lengths)
+                    _, validation_rewards, traces, costs = self.predict(
+                        X.sample(10),
+                        full_output=True)
+                    lengths = [len(trace) for trace in traces]
 
-                print(f"[*] Iteration {iteration} / Buffer Size: {self.buffer.get_memory_length()} / {self.training_statistics.print_statistics(string_out=True)}")
+                    # Update the statistics
+                    self.training_statistics.update_statistics(validation_rewards, costs, lengths)
+
+                    if verbose:
+                        print(f"[*] Iteration {iteration} / Buffer Size: {self.buffer.get_memory_length()} / {self.training_statistics.print_statistics(string_out=True)}")
     
         # Copy the trainer policy to the object policy 
         self.policy = self.trainer.policy
