@@ -12,13 +12,14 @@ from sklearn.tree import _tree
 
 class EFARE():
 
-    def __init__(self, model, policy_config, environment_config, mcts_config) -> None:
-        
+    def __init__(self, model, policy_config, environment_config, mcts_config, preprocessor=None) -> None:
+
         # Black-box model we want to use
         self.model = model
 
         # The EFARE model we want to train
         self.efare_model = EFAREModel()
+        self.efare_preprocessor = preprocessor
 
         self.mcts_config = mcts_config
         self.environment_config = environment_config
@@ -48,7 +49,7 @@ class EFARE():
             import dill as pickle
             pickle.dump(self.efare_model.automa, f)
     
-    def fit(self, X, max_iter=100, verbose=False, preprocessor=None):
+    def fit(self, X, max_iter=100, verbose=False):
 
         with tqdm(range(1, max_iter+1), desc="Train EFARE", disable=verbose) as t:
         
@@ -72,7 +73,7 @@ class EFARE():
                 if traces.rewards[0] > 0:
                     self.efare_model.add(root_node)
         
-        self.efare_model.compute(preprocessor)
+        self.efare_model.compute(self.efare_preprocessor)
     
     def predict(self, X, full_output=False, verbose=False):
 
@@ -102,8 +103,8 @@ class EFARE():
 
             env_validation.features = results[1].copy()
             counterfactuals.append(results[1].copy())
-            traces += results[3]
-            Y.append(env_validation.prog_to_postcondition[env_validation.prog_to_idx["INTERVENE"]](None, None))
+            traces.append(results[3])
+            Y.append(env_validation.prog_to_postcondition(None, None))
             costs.append(results[2])
             rules.append(results[4])
 
@@ -132,7 +133,9 @@ class EFARE():
                 #obs_inst = pd.DataFrame([env.get_observation().tolist()])
                 #rules.append(self.extract_rule_from_tree(actions, obs_inst))
                 rules.append([])
-                next_op = actions.predict([env.get_observation().tolist()])[0]
+                next_op = actions.predict(
+                    self.efare_preprocessor.transform(pd.DataFrame.from_records([env.get_state()]))
+                )[0]
 
             if next_op != "STOP(0)":
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
@@ -149,7 +152,7 @@ class EFARE():
                 if not precondition_satisfied:
                     return [[False, env.features.copy(), cost, action_list, rules]]
 
-                cost += self.get_cost_from_env(env, action_name, str(args))
+                cost += get_cost_from_env(env, action_name, str(args))
 
                 env.act(action_name, args)
 
