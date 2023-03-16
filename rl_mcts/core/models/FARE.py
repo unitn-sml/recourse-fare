@@ -172,7 +172,7 @@ class FARE:
 
                     self.policy = self.trainer.policy
 
-                    _, validation_rewards, traces, costs = self.predict(
+                    _, validation_rewards, traces, costs, _ = self.predict(
                         X.sample(10),
                         full_output=True)
                     lengths = [len(trace) for trace in traces]
