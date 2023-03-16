@@ -29,6 +29,8 @@ class MCTSNode(ABC):
         self.denom = 0.0
         self.estimated_qval = 0.0
 
+        self.program_name = None
+
         for dictionary in initial_data:
             for key in dictionary:
                 setattr(self, key, dictionary[key])
@@ -56,7 +58,8 @@ class MCTSNode(ABC):
             "args": 0,
             "args_index": None,
             "denom": 0.0,
-            "estimated_qval": 0.0
+            "estimated_qval": 0.0,
+            "program_name": None,
         })
 
     def to_dict(self):
@@ -79,5 +82,6 @@ class MCTSNode(ABC):
             "denom": self.denom,
             "estimated_qval": self.estimated_qval,
             "h_lstm_args": self.h_lstm_args.clone(),
-            "c_lstm_args": self.c_lstm_args.clone()
+            "c_lstm_args": self.c_lstm_args.clone(),
+            "program_name": self.program_name,
         }

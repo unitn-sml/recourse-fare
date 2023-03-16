@@ -8,10 +8,10 @@ import numpy as np
 def make_closure(action):
     return lambda x=None: action
 
-class EFARE:
+class EFAREModel:
 
-    def __init__(self, env, operation="INTERVENE", seed=2021):
-        self.env = env
+    def __init__(self, operation="INTERVENE", seed=2021):
+        
         self.real_program_counts = []
         self.observations = []
         self.points = []
@@ -24,8 +24,6 @@ class EFARE:
         self.graph_rules = {}
         self.automa = {}
         self.envs_seen = {}
-
-        self.encoder = env.data_encoder
 
     def get_breadth_first_nodes(self, root_node):
         '''
@@ -72,7 +70,7 @@ class EFARE:
                 )
             else:
                 self.operations.append(
-                    self.env.get_program_from_index(node.program_from_parent_index)
+                   node.program_name
                 )
 
             self.args.append(
@@ -80,14 +78,14 @@ class EFARE:
             )
 
             self.observations.append(
-                self.env.parse_observation(node.env_state)
+               node.env_state
             )
 
             self.points.append(
                 node.h_lstm.flatten().numpy()
             )
 
-    def compute(self, columns):
+    def compute(self, preprocessor=None):
         print("[*] Compute rules given graph")
 
         for p in range(0, len(self.points) - 1):
@@ -103,7 +101,9 @@ class EFARE:
 
             if self.real_program_counts[p] < self.real_program_counts[p + 1]:
 
-                self.graph[state]["data"].append(self.observations[p] + [str(ops[1])])
+                new_obs = self.observations[p].copy()
+                new_obs["operation"] = str(ops[1])
+                self.graph[state]["data"].append(new_obs)
 
                 # Get next state
                 next_state = self.operations[p + 1]
@@ -114,10 +114,10 @@ class EFARE:
                     self.graph.get(state)["arcs"][ops[1]] = set()
 
         for k, v in self.graph.items():
-            df = pd.DataFrame(v["data"], columns=columns + ["operation"], dtype=object)
+            df = pd.DataFrame.from_records(v["data"])
             df.drop_duplicates(inplace=True)
             # Remove inconsistencies
-            df = df[df.groupby(columns)["operation"].transform('nunique') == 1]
+            #df = df[df.groupby(df.columns)["operation"].transform('nunique') == 1]
 
             # Stop will be empty, so we do not process
             if k == "STOP":
@@ -125,7 +125,7 @@ class EFARE:
 
             if len(df["operation"].unique()) > 1:
                 print(f"[*] Getting rules for node {k}")
-                self._compute_tree(df, k)
+                self._compute_tree(df, k, preprocessor)
             else:
                 print(f"[*] Add single rule for node {k}")
                 self.graph[k]["arcs"][df["operation"].unique()[0]] = {'True'}
@@ -134,23 +134,17 @@ class EFARE:
                 # the correct action
                 self.automa[k] = make_closure(df["operation"].unique()[0])
 
-    def _compute_tree(self, df, node_name):
+    def _compute_tree(self, df, node_name, preprocessor=None):
 
         from sklearn import tree
 
         Y = df["operation"]
         df.drop(columns=["operation"], inplace=True)
 
-        columns = self.env.categorical_cols
-        cat_ohe = self.encoder.transform(df[columns]).toarray()
-        ohe_df = pd.DataFrame(cat_ohe, columns=self.encoder.get_feature_names_out(input_features=columns))
-        df.reset_index(drop=True, inplace=True)
-        df = pd.concat([df, ohe_df], axis=1).drop(columns=columns, axis=1)
-
-        columns_add = df.columns.tolist()
-        columns_add = [c.replace("<=", " ").replace(">=", " ").replace("<", " ").replace(">", " ") for c in columns_add]
+        if preprocessor:
+            df = preprocessor.transform(df)
 
         clf = tree.DecisionTreeClassifier()
-        clf = clf.fit(df.values, Y.values)
+        clf = clf.fit(df, Y.values)
 
         self.automa[node_name] = clf

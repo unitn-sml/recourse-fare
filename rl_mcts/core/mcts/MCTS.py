@@ -134,6 +134,7 @@ class MCTS:
                         "args": self.env.complete_arguments[arg_index],
                         "args_index": arg_index,
                         "depth": depth + 1,
+                        "program_name": self.env.get_program_from_index(prog_index)
                     })
 
                     # Add the new node in a temporary array
