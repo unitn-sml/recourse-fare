@@ -106,6 +106,7 @@ class FARE:
         Y = []
         traces = []
         costs = []
+        root_nodes = []
         for i in tqdm(range(len(X)), disable=not verbose):
 
             env_validation = import_dyn_class(self.environment_config.get("class_name"))(
@@ -127,12 +128,13 @@ class FARE:
             cost, _ = get_cost_from_tree(env_validation, root_node)
             costs.append(cost)
             traces.append(get_trace(env_validation, root_node))
+            root_nodes.append(root_node)
 
             Y.append(1 if task_reward > 0 else 0)
             counterfactuals.append(env_validation.features.copy())
         
         if full_output:
-            return pd.DataFrame.from_records(counterfactuals), Y, traces, costs
+            return pd.DataFrame.from_records(counterfactuals), Y, traces, costs, root_nodes
         else:
             return pd.DataFrame.from_records(counterfactuals)
 

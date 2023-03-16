@@ -3,6 +3,7 @@ from rl_mcts.core.agents.policy import Policy
 from rl_mcts.core.mcts.MCTS import MCTS
 
 from rl_mcts.core.automa.efare import EFAREModel
+from rl_mcts.core.models.FARE import FARE
 
 from tqdm.auto import tqdm
 
@@ -12,32 +13,14 @@ from sklearn.tree import _tree
 
 class EFARE():
 
-    def __init__(self, model, policy_config, environment_config, mcts_config, preprocessor=None) -> None:
+    def __init__(self, fare_model: FARE, preprocessor=None) -> None:
 
         # Black-box model we want to use
-        self.model = model
+        self.fare_model = fare_model
 
         # The EFARE model we want to train
         self.efare_model = EFAREModel()
         self.efare_preprocessor = preprocessor
-
-        self.mcts_config = mcts_config
-        self.environment_config = environment_config
-
-        env = import_dyn_class(environment_config.get("class_name"))(None, None,
-                                                                     **self.environment_config.get("additional_parameters"))
-
-        num_programs = env.get_num_programs()
-        additional_arguments_from_env = env.get_additional_parameters()
-
-        # Set up the policy object
-        self.policy = Policy(
-            policy_config.get("observation_dim"),
-            policy_config.get("encoding_dim"),
-            policy_config.get("hidden_size"),
-            num_programs,
-            **additional_arguments_from_env
-        )
 
     def load(self, load_path:str = "."):
         with open(load_path, "rb") as f:
@@ -49,29 +32,13 @@ class EFARE():
             import dill as pickle
             pickle.dump(self.efare_model.automa, f)
     
-    def fit(self, X, max_iter=100, verbose=False):
+    def fit(self, X, verbose=True):
 
-        with tqdm(range(1, max_iter+1), desc="Train EFARE", disable=verbose) as t:
-        
-            for iteration in t:
+        _,Y,_,_, root_nodes = self.fare_model.predict(X, full_output=True, verbose=verbose)
 
-                features = X.sample(1)
-                features = features.to_dict(orient='records')[0]
-
-                mcts = MCTS(
-                    import_dyn_class(self.environment_config.get("class_name"))(
-                        features.copy(),
-                        self.model,
-                        **self.environment_config.get("additional_parameters")
-                        ), 
-                    self.policy,
-                    **self.mcts_config
-                )
-
-                traces, root_node, node_expanded = mcts.sample_intervention()
-
-                if traces.rewards[0] > 0:
-                    self.efare_model.add(root_node)
+        for reward,root_node in zip(Y,root_nodes):
+            if reward > 0:
+                self.efare_model.add(root_node)
         
         self.efare_model.compute(self.efare_preprocessor)
     
@@ -86,10 +53,10 @@ class EFARE():
         rules = []
         for i in tqdm(range(len(X)), disable=not verbose):
 
-            env_validation = import_dyn_class(self.environment_config.get("class_name"))(
+            env_validation = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
                 X[i].copy(),
-                self.model,
-                **self.environment_config.get("additional_parameters"))
+                self.fare_model.model,
+                **self.fare_model.environment_config.get("additional_parameters"))
 
             env_validation.start_task()
 
