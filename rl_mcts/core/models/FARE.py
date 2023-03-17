@@ -53,6 +53,8 @@ class FARE:
         # Black-box model we want to use
         self.model = model
 
+        assert batch_size <= training_buffer_size, "The batch size must be smaller than the training buffer!"
+
         self.batch_size = batch_size
         self.training_buffer_size = training_buffer_size
         self.training_buffer_sample_error = sample_error_probab

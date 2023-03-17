@@ -142,7 +142,8 @@ class EFAREModel:
         df.drop(columns=["operation"], inplace=True)
 
         if preprocessor:
-            df = preprocessor.transform(df)
+            transformed_columns = preprocessor.get_feature_names_out(df.columns)
+            df = pd.DataFrame(preprocessor.transform(df), columns=transformed_columns)
 
         clf = tree.DecisionTreeClassifier()
         clf = clf.fit(df, Y.values)

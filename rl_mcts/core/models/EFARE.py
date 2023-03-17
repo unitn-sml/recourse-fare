@@ -42,7 +42,7 @@ class EFARE():
         
         self.efare_model.compute(self.efare_preprocessor)
     
-    def predict(self, X, full_output=False, verbose=False):
+    def predict(self, X, full_output=False, verbose=True):
 
         X = X.to_dict(orient='records')
 
@@ -51,7 +51,7 @@ class EFARE():
         traces = []
         costs = []
         rules = []
-        for i in tqdm(range(len(X)), disable=not verbose):
+        for i in tqdm(range(len(X)), desc="Eval EFARE", disable=not verbose):
 
             env_validation = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
                 X[i].copy(),
@@ -95,12 +95,17 @@ class EFARE():
                 next_op = actions(None)
                 rules.append(["True"])
             else:
-                
-                #obs_inst = pd.DataFrame([env.get_observation().tolist()])
-                #rules.append(self.extract_rule_from_tree(actions, obs_inst))
-                rules.append([])
+
+                if self.efare_preprocessor:
+                    next_state = self.efare_preprocessor.transform(pd.DataFrame.from_records([env.get_state()]))
+                    transformed_columns = self.efare_preprocessor.get_feature_names_out(pd.DataFrame.from_records([env.get_state()]).columns)
+                    next_state = pd.DataFrame(next_state, columns=transformed_columns)
+                else:
+                    next_state = pd.DataFrame.from_records([env.get_state()])
+
+                rules.append(self.extract_rule_from_tree(actions, next_state))
                 next_op = actions.predict(
-                    self.efare_preprocessor.transform(pd.DataFrame.from_records([env.get_state()]))
+                    next_state
                 )[0]
 
             if next_op != "STOP(0)":
@@ -146,8 +151,8 @@ class EFARE():
             for i in feature
         ]
 
-        node_indicator = model.decision_path(instance.values.tolist())
-        leaf_id = model.apply(instance.values.tolist())
+        node_indicator = model.decision_path(instance)
+        leaf_id = model.apply(instance)
 
         sample_id = 0
         # obtain ids of the nodes `sample_id` goes through, i.e., row `sample_id`
@@ -168,13 +173,13 @@ class EFARE():
                 threshold_sign = "<="
             else:
                 threshold_sign = ">"
-
+            
             inst_value = "True" if instance[feature_name[node_id]].values[0] else "False"
-            negation = "" if instance[feature_name[node_id]].values[0] else "not"
+            #negation = "" if instance[feature_name[node_id]].values[0] else "not"
 
             rules_detected.append(
-                #f"{feature_name[node_id]} = {inst_value} {threshold_sign} {threshold[node_id]}"
-                f"{negation} {feature_name[node_id]}".strip()
+                f"{feature_name[node_id]} {threshold_sign} {threshold[node_id]}"
+                #f"{negation} {feature_name[node_id]}".strip()
             )
 
         return rules_detected
