@@ -6,11 +6,14 @@ from rl_mcts.core.trainer.trainer import Trainer
 from rl_mcts.core.trainer.trainer_statistics import MovingAverageStatistics
 from rl_mcts.core.agents.policy import Policy
 
+from tensorboardX import SummaryWriter
+
 import torch
 
 from tqdm.auto import tqdm
 
 import pandas as pd
+import numpy as np
 
 DEFAULT_MCTS_CONFIG = {
         "exploration": True,
@@ -98,7 +101,7 @@ class FARE:
         """
         self.policy.load_state_dict(torch.load(load_model_path))
 
-    def predict(self, X, full_output=False, verbose=False):
+    def predict(self, X, full_output=False, verbose=True):
 
         X = X.to_dict(orient='records')
 
@@ -107,7 +110,7 @@ class FARE:
         traces = []
         costs = []
         root_nodes = []
-        for i in tqdm(range(len(X)), disable=not verbose):
+        for i in tqdm(range(len(X)),  desc="Eval FARE", disable=not verbose):
 
             env_validation = import_dyn_class(self.environment_config.get("class_name"))(
                 X[i].copy(),
@@ -138,12 +141,24 @@ class FARE:
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def fit(self, X, max_iter=1000, verbose=False):
+    def fit(self, X, max_iter=1000, verbose=True, tensorboard=None):
 
         # Initialize the various objects needed to train FARE
         self._init_training_objects()
 
-        with tqdm(range(1, max_iter+1), desc="Train FARE", disable=verbose) as t:
+        # If tensorboard
+        if tensorboard:
+            writer = SummaryWriter(tensorboard)
+
+        # Dictionary containing the tensorboard values
+        training_losses = {
+            "actor": [],
+            "arguments": [],
+            "value": [],
+            "total_nodes": []
+        }
+
+        with tqdm(range(1, max_iter+1), desc="Train FARE", disable=not verbose) as t:
             for iteration in t:
 
                 t.set_description(
@@ -166,22 +181,45 @@ class FARE:
                 traces, root_node, node_expanded = mcts.sample_intervention()
 
                 # Run one optimization step within the trainer
-                self.trainer.train_one_step([traces])
+                act_loss, crit_loss, args_loss = self.trainer.train_one_step([traces])
 
+                training_losses.get("actor").append(act_loss)
+                training_losses.get("value").append(crit_loss)
+                training_losses.get("arguments").append(args_loss)
+                training_losses.get("total_nodes").append(node_expanded)
+
+                # Perform the validation step
                 if iteration % self.validation_steps == 0:
 
                     self.policy = self.trainer.policy
 
                     _, validation_rewards, traces, costs, _ = self.predict(
                         X.sample(10),
-                        full_output=True)
+                        full_output=True,
+                        verbose=False)
                     lengths = [len(trace) for trace in traces]
 
                     # Update the statistics
                     self.training_statistics.update_statistics(validation_rewards, costs, lengths)
 
-                    if verbose:
-                        print(f"[*] Iteration {iteration} / Buffer Size: {self.buffer.get_memory_length()} / {self.training_statistics.print_statistics(string_out=True)}")
+                    # If tensorboard, update tensorboard files
+                    if tensorboard:
+                        
+                        # Add some information when training
+                        writer.add_scalar("loss/actor", np.mean(training_losses.get("actor")), iteration)
+                        writer.add_scalar("loss/value", np.mean(training_losses.get("value")), iteration)
+                        writer.add_scalar("loss/arguments", np.mean(training_losses.get("arguments")), iteration)
+                        writer.add_scalar("mcts/avg_node_expanded", np.mean(training_losses.get("total_nodes")), iteration)
+
+                        # Add some information for the validation
+                        avg_validity, avg_cost, avg_length = self.training_statistics.get_statistic()
+                        writer.add_scalar('validation/avg_validity', avg_validity, iteration)
+                        writer.add_scalar('validation/avg_cost', avg_cost, iteration)
+                        writer.add_scalar('validation/avg_length', avg_length, iteration)
+
+                    # Clean the logging
+                    for k in training_losses.keys():
+                        training_losses[k] = []
     
         # Copy the trainer policy to the object policy 
         self.policy = self.trainer.policy

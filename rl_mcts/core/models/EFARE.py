@@ -68,10 +68,9 @@ class EFARE():
                                                      next_action,
                                                      max_depth, 0, [], [])[0]
 
-            env_validation.features = results[1].copy()
             counterfactuals.append(results[1].copy())
             traces.append(results[3])
-            Y.append(env_validation.prog_to_postcondition(None, None))
+            Y.append(env_validation.prog_to_postcondition(X[i].copy(), results[1].copy()))
             costs.append(results[2])
             rules.append(results[4])
 
