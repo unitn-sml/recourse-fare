@@ -1,0 +1,1 @@
+from ..automa.efare import EFAREModel
