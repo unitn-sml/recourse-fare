@@ -2,8 +2,7 @@
 
 This library provides a set of methods which can be used to achieve model agnostic algorithmic recouse given a black-box model. The library enables customization of all the aspects of the recourse process, from the actions available to the models employed.
 
-**If you want to have a gist of a practical application and how to use the code, please have a look at the following notebook [FARE and E-FARE Models Example with the Adult dataset
-] (https://github.com/unitn-sml/syn-interventions-algorithmic-recourse/blob/feature/v1.0/notebooks/train_fare_adult.ipynb)**
+**If you want to have a gist of a practical application and how to use the code, please have a look at the following notebook [FARE and E-FARE Models Example with the Adult dataset](https://github.com/unitn-sml/syn-interventions-algorithmic-recourse/blob/feature/v1.0/notebooks/train_fare_adult.ipynb)**
 
 ## Install
 
