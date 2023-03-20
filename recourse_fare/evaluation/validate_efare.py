@@ -1,5 +1,5 @@
-from ..core.utils.functions import import_dyn_class, get_cost_from_env
-from ..core.data_loader import DataLoader
+from ..utils.functions import import_dyn_class, get_cost_from_env
+from ..data_loader import DataLoader
 
 import numpy as np
 import pandas as pd

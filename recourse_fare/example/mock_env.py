@@ -1,4 +1,4 @@
-from recourse_fare.core.environment import Environment
+from recourse_fare.environment import Environment
 from collections import OrderedDict
 
 import numpy as np

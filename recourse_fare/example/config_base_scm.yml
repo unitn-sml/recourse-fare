@@ -21,7 +21,7 @@ training:
   num_episodes_per_iteration: 10
 
   mcts:
-    name: "recourse_fare.core.mcts.MCTS"
+    name: "recourse_fare.mcts.MCTS"
     configuration_parameters:
       exploration: true
       number_of_simulations: 10
@@ -58,7 +58,7 @@ environment:
 
 # Policy used for this experiment
 policy:
-  name: "recourse_fare.core.agents.policy.Policy"
+  name: "recourse_fare.agents.policy.Policy"
   hidden_size: 50
   encoding_dim: 20 # This needs to be equal to the encoder embedding_dim
 
@@ -67,7 +67,7 @@ validation:
   iterations: 100
 
   mcts:
-    name: "recourse_fare.core.mcts.MCTS"
+    name: "recourse_fare.mcts.MCTS"
     configuration_parameters:
       exploration: false
       number_of_simulations: 5

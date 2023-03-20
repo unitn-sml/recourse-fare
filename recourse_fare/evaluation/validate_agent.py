@@ -1,6 +1,6 @@
-from ..core.utils.functions import import_dyn_class
-from ..core.agents.policy_only_agent import PolicyOnly
-from ..core.data_loader import DataLoader
+from ..utils.functions import import_dyn_class
+from ..agents.policy_only_agent import PolicyOnly
+from ..data_loader import DataLoader
 
 import numpy as np
 import pandas as pd

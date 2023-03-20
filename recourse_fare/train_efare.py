@@ -1,6 +1,6 @@
-from recourse_fare.core.utils.functions import import_dyn_class
-from recourse_fare.core.data_loader import DataLoader
-from recourse_fare.core.automa.efare import EFARE
+from recourse_fare.utils.functions import import_dyn_class
+from recourse_fare.data_loader import DataLoader
+from recourse_fare.automa.efare import EFARE
 
 from argparse import ArgumentParser
 import torch

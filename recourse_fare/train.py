@@ -1,8 +1,8 @@
-from .core.data_loader import DataLoader
-from .core.buffer.trace_buffer import PrioritizedReplayBuffer
-from .core.trainer.trainer import Trainer
-from .core.trainer.trainer_statistics import MovingAverageStatistics
-from .core.utils.functions import import_dyn_class, get_cost_from_tree
+from .data_loader import DataLoader
+from .buffer.trace_buffer import PrioritizedReplayBuffer
+from .trainer.trainer import Trainer
+from .trainer.trainer_statistics import MovingAverageStatistics
+from .utils.functions import import_dyn_class, get_cost_from_tree
 
 import torch
 import numpy as np
@@ -15,7 +15,7 @@ import yaml
 import time
 import os
 
-from .core.utils.early_stopping import EarlyStopping
+from .utils.early_stopping import EarlyStopping
 
 if __name__ == "__main__":
 
