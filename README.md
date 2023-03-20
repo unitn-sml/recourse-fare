@@ -1,20 +1,20 @@
 # Recourse-FARE: (Explainable) Algorithmic Recourse with Reinforcement Learning and MCTS
 
-This library provides a set of methods which can be used to achieve model agnostic algorithmic recouse given a black-box model. The library enables customization of all the aspects of the recourse process, from the actions available to the models employed.
+This library provides a set of methods which can be used to achieve model-agnostic algorithmic recourse given a black-box model. The library enables customization of all the aspects of the recourse process, from the actions available to the models employed.
 
-**If you want to have a gist of a practical application and how to use the code, please have a look at the following notebook [Tutorial: training FARE and E-FARE models on the Adult dataset](./recourse_fare/example/notebooks/train_fare_adult.ipynb)**
+**If you want to have a gist of a practical application and how to use `recourse-fare`, please have a look at the following notebook [Tutorial: training FARE and E-FARE models on the Adult dataset](./recourse_fare/example/notebooks/train_fare_adult.ipynb)**
 
 ## Install
 
-The library can be easily installed from Github directly. We suggest to use a virtualenv to make it easier to develop on top of it.
+The library can be easily installed from GitHub directly. We suggest using a virtualenv to make it easier to develop on top of it.
 
 ```bash
-!pip install git+https://github.com/unitn-sml/recourse-fare.git@v0.1.0
+pip install git+https://github.com/unitn-sml/recourse-fare.git@v0.1.0
 ```
 
 ## Development
 
-We can easily download the following library and install it locally in your preferred (virtual) environment. During the development, we used **Python 3.7** and **conda**. If you find any issue with the following procedure, feel free to open a issue!
+We can easily download the following library and install it locally in your preferred (virtual) environment. We suggest using **Python 3.7** and **conda**. If you find any issue with the following procedure, feel free to open an issue!
 
 ```bash
 git clone https://github.com/unitn-sml/recourse-fare.git
