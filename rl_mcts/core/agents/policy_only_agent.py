@@ -2,18 +2,18 @@ import torch
 
 class PolicyOnly:
 
-    def __init__(self, policy, env, max_depth_dict):
+    def __init__(self, policy, env, max_intervention_depth):
         self.policy = policy
         self.env = env
 
         self.stop_index = env.programs_library["STOP"]['index']
-        self.max_depth_dict = max_depth_dict
+        self.max_intervention_depth = max_intervention_depth
         self.clean_sub_executions = True
 
     def play(self, task_index):
         programs_called = []
 
-        max_depth = self.max_depth_dict
+        max_depth = self.max_intervention_depth
         depth = 0
         wrong_program = False
         cost = []

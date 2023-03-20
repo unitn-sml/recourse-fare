@@ -8,7 +8,7 @@ import torch
 class Environment(ABC):
 
     def __init__(self, features, model, prog_to_func, prog_to_precondition, prog_to_postcondition, programs_library, arguments,
-                 max_depth_dict, prog_to_cost=None, custom_tensorboard_metrics=None):
+                 max_intervention_depth, prog_to_cost=None, custom_tensorboard_metrics=None):
 
         self.features = features
         self.model = model
@@ -29,7 +29,7 @@ class Environment(ABC):
 
         self.has_been_reset = True
 
-        self.max_depth_dict = max_depth_dict
+        self.max_intervention_depth = max_intervention_depth
 
         self.tasks_dict = {}
         self.tasks_list = []
@@ -87,7 +87,7 @@ class Environment(ABC):
         self.has_been_reset = False
 
     def get_max_depth(self):
-        return self.max_depth_dict
+        return self.max_intervention_depth
 
     def _get_available_actions(self, program):
         level_prog = self.programs_library[program]["level"]
@@ -183,7 +183,9 @@ class Environment(ABC):
         return int(current_task_postcondition(task_init_state, state))
 
     def get_additional_parameters(self):
-        return {}
+        return {
+            "argument_types": self.arguments
+        }
 
     def get_state_str(self, state):
         return ""

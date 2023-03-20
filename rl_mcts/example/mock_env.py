@@ -56,7 +56,7 @@ class MockEnv(Environment):
 
         self.arguments_index = [(i, v) for i, v in enumerate(self.complete_arguments)]
 
-        self.max_depth_dict = {1: 10}
+        self.max_intervention_depth = {1: 10}
 
         for idx, key in enumerate(sorted(list(self.programs_library.keys()))):
             self.programs_library[key]['index'] = idx
@@ -65,7 +65,7 @@ class MockEnv(Environment):
         self.data = list(range(0,100))
 
         super().__init__(f, w, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
-                         self.programs_library, self.arguments, self.max_depth_dict, complete_arguments=self.complete_arguments)
+                         self.programs_library, self.arguments, self.max_intervention_depth, complete_arguments=self.complete_arguments)
 
 
     def init_env(self):

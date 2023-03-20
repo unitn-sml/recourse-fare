@@ -214,7 +214,7 @@ if __name__ == "__main__":
 
         env.start_task()
 
-        max_depth = env.max_depth_dict.get(1)
+        max_depth = env.max_intervention_depth.get(1)
 
         next_action = "INTERVENE(0)"
 

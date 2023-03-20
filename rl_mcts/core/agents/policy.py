@@ -101,7 +101,7 @@ class ArgumentsSingleNet(Module):
 
 class Policy(Module):
     def __init__(self, observation_dim, encoding_dim, hidden_size, num_programs,
-                types, learning_rate=1e-3, use_gpu=False):
+                argument_types, learning_rate=1e-3, use_gpu=False):
 
         super().__init__()
 
@@ -111,7 +111,7 @@ class Policy(Module):
 
         self._hidden_size = hidden_size
         self.num_programs = num_programs
-        self.types = types
+        self.argument_types = argument_types
 
         self.encoding_dim = encoding_dim
 
@@ -125,7 +125,7 @@ class Policy(Module):
         self.actor = ActorNet(self._hidden_size, self.num_programs).to(self.device)
 
         # Generate N decoders given the types and the type range
-        self.arguments = ArgumentsNet(self._hidden_size, self.types).to(self.device)
+        self.arguments = ArgumentsNet(self._hidden_size, self.argument_types).to(self.device)
 
         self.init_networks()
         self.init_optimizer(lr=learning_rate)

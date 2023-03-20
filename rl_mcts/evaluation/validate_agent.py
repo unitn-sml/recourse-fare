@@ -96,7 +96,7 @@ if __name__ == "__main__":
             **config.get("validation").get("environment", {}).get("configuration_parameters", {})
         )
 
-        network_only = PolicyOnly(policy, env, env.max_depth_dict)
+        network_only = PolicyOnly(policy, env, env.max_intervention_depth)
         netonly_reward, trace_used, cost = network_only.play(idx)
 
         reward.append(netonly_reward)

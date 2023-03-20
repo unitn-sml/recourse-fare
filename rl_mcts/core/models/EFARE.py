@@ -58,7 +58,7 @@ class EFARE():
 
             env_validation.start_task()
 
-            max_depth = env_validation.max_depth_dict
+            max_depth = env_validation.max_intervention_depth
             next_action = "INTERVENE(0)"
 
             results = self.validation_recursive_tree(self.efare_model.automa,

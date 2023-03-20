@@ -36,7 +36,7 @@ class MockEnv(EnvironmentSCM):
             "NONE": [0]
         }.items()))
 
-        self.max_depth_dict = 5
+        self.max_intervention_depth = 5
 
         self.preprocessing = preprocessing
         self.feature_ordering_prep = list(self.preprocessing.feature_names_in_)
@@ -58,7 +58,7 @@ class MockEnv(EnvironmentSCM):
         }
 
         super().__init__(features, model, self.prog_to_func, self.prog_to_precondition, self.prog_to_postcondition,
-                         self.programs_library, self.arguments, self.max_depth_dict,
+                         self.programs_library, self.arguments, self.max_intervention_depth,
                          scm=scm,
                          A=A,
                          program_feature_mapping=self.program_feature_mapping)
