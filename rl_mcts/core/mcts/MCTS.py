@@ -1,5 +1,5 @@
-from rl_mcts.core.mcts import Intervention, MCTSNode
-from rl_mcts.core.utils.functions import compute_q_value
+from ..mcts import Intervention, MCTSNode
+from ..utils.functions import compute_q_value
 
 import torch
 import numpy as np

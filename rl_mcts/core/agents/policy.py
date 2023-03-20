@@ -5,7 +5,7 @@ from torch.nn.init import uniform_
 import torch.nn.functional as F
 import numpy as np
 
-from rl_mcts.core.utils.anomaly_detection import BetterAnomalyDetection
+from ..utils.anomaly_detection import BetterAnomalyDetection
 
 class PolicyEncoder(nn.Module):
     """ This class implements a simple MLP which encodes the action policies,

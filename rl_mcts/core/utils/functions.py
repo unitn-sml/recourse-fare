@@ -1,5 +1,5 @@
 import torch
-from rl_mcts.core.environment import Environment
+from ..environment import Environment
 
 import importlib
 

@@ -1,10 +1,10 @@
-from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_tree, get_trace
-from rl_mcts.core.data_loader import DataLoader
-from rl_mcts.core.mcts.MCTS import MCTS
-from rl_mcts.core.buffer.trace_buffer import PrioritizedReplayBuffer
-from rl_mcts.core.trainer.trainer import Trainer
-from rl_mcts.core.trainer.trainer_statistics import MovingAverageStatistics
-from rl_mcts.core.agents.policy import Policy
+from ..utils.functions import import_dyn_class, get_cost_from_tree, get_trace
+from ..data_loader import DataLoader
+from ..mcts.MCTS import MCTS
+from ..buffer.trace_buffer import PrioritizedReplayBuffer
+from ..trainer.trainer import Trainer
+from ..trainer.trainer_statistics import MovingAverageStatistics
+from ..agents.policy import Policy
 
 from tensorboardX import SummaryWriter
 

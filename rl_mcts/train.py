@@ -1,8 +1,8 @@
-from rl_mcts.core.data_loader import DataLoader
-from rl_mcts.core.buffer.trace_buffer import PrioritizedReplayBuffer
-from rl_mcts.core.trainer.trainer import Trainer
-from rl_mcts.core.trainer.trainer_statistics import MovingAverageStatistics
-from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_tree
+from .core.data_loader import DataLoader
+from .core.buffer.trace_buffer import PrioritizedReplayBuffer
+from .core.trainer.trainer import Trainer
+from .core.trainer.trainer_statistics import MovingAverageStatistics
+from .core.utils.functions import import_dyn_class, get_cost_from_tree
 
 import torch
 import numpy as np
@@ -15,7 +15,7 @@ import yaml
 import time
 import os
 
-from rl_mcts.core.utils.early_stopping import EarlyStopping
+from .core.utils.early_stopping import EarlyStopping
 
 if __name__ == "__main__":
 

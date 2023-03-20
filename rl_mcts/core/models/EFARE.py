@@ -1,9 +1,7 @@
-from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_env
-from rl_mcts.core.agents.policy import Policy
-from rl_mcts.core.mcts.MCTS import MCTS
+from ..utils.functions import import_dyn_class, get_cost_from_env
 
-from rl_mcts.core.automa.efare import EFAREModel
-from rl_mcts.core.models.FARE import FARE
+from ..automa.efare import EFAREModel
+from ..models.FARE import FARE
 
 from tqdm.auto import tqdm
 

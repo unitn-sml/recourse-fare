@@ -1,5 +1,5 @@
-from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_tree, get_trace
-from rl_mcts.core.data_loader import DataLoader
+from ..core.utils.functions import import_dyn_class, get_cost_from_tree, get_trace
+from ..core.data_loader import DataLoader
 
 import numpy as np
 

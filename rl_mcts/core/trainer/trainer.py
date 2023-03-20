@@ -1,4 +1,4 @@
-from rl_mcts.core.utils.functions import import_dyn_class, get_cost_from_tree
+from ..utils.functions import import_dyn_class, get_cost_from_tree
 
 import numpy as np
 
