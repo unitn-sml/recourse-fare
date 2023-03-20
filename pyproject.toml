@@ -11,9 +11,9 @@ version = "0.0.1"
 authors = [
   { name="Giovanni De Toni", email="giovanni.detoni@unitn.it" },
 ]
-description = "Reinforcement Learning with MCTS (Structured Machine Learning Lab)"
+description = "Algorithmic Recourse with Reinforcement Learning and MCTS (Structured Machine Learning Lab)"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
