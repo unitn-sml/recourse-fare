@@ -1,4 +1,4 @@
-from rl_mcts.core.environment_scm import EnvironmentSCM
+from recourse_fare.core.environment_scm import EnvironmentSCM
 from collections import OrderedDict
 
 from causalgraphicalmodels import StructuralCausalModel

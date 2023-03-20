@@ -1,4 +1,4 @@
-name: rl_mcts
+name: recourse_fare
 channels:
   - defaults
 dependencies:

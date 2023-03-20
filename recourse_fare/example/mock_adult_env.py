@@ -1,4 +1,4 @@
-from rl_mcts.core.environment import Environment
+from recourse_fare.core.environment import Environment
 
 from collections import OrderedDict
 from typing import Any

@@ -1,6 +1,6 @@
-from rl_mcts.core.utils.functions import import_dyn_class
-from rl_mcts.core.data_loader import DataLoader
-from rl_mcts.core.automa.efare import EFARE
+from recourse_fare.core.utils.functions import import_dyn_class
+from recourse_fare.core.data_loader import DataLoader
+from recourse_fare.core.automa.efare import EFARE
 
 from argparse import ArgumentParser
 import torch

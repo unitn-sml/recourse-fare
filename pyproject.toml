@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["rl_mcts"]
+packages = ["recourse_fare"]
 
 [project]
-name = "rl_mcts"
+name = "recourse_fare"
 version = "0.0.1"
 authors = [
   { name="Giovanni De Toni", email="giovanni.detoni@unitn.it" },

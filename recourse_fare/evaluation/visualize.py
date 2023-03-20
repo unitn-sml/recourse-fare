@@ -1,5 +1,5 @@
-from rl_mcts.utils.functions import import_dyn_class
-from rl_mcts.visualize.get_trace import MCTSvisualiser
+from recourse_fare.utils.functions import import_dyn_class
+from recourse_fare.visualize.get_trace import MCTSvisualiser
 
 from argparse import ArgumentParser
 import torch

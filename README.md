@@ -10,7 +10,7 @@ First, we need to clone this repository locally. We also need to create a suitab
 git clone https://github.com/unitn-sml/rl-mcts.git
 cd rl-mcts
 conda env create -f environment.yml
-conda activate rl_mcts
+conda activate recourse_fare
 pip install .
 ```
 

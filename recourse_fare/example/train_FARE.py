@@ -3,7 +3,7 @@
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from rl_mcts.core.models.FARE import FARE
+from recourse_fare.core.models.FARE import FARE
 
 import pandas as pd
 import numpy as np
@@ -14,7 +14,7 @@ def model(features):
 if __name__ == "__main__":
 
     # Read data and preprocess them
-    X = pd.read_csv("rl_mcts/example/data.csv")
+    X = pd.read_csv("recourse_fare/example/data.csv")
     y = X["sum_total"]
     X.drop(columns="sum_total", inplace=True)
 
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     }
 
     environment_config = {
-        "class_name": "rl_mcts.example.mock_env_scm.MockEnv",
+        "class_name": "recourse_fare.example.mock_env_scm.MockEnv",
         "additional_parameters": {
             "preprocessing": scaler
         }

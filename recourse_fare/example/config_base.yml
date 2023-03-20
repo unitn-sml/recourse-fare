@@ -9,7 +9,7 @@ general:
 dataloader:
   sample_errors: 0.1
   configuration_parameters:
-    dataset: "rl_mcts/example/data.csv"
+    dataset: "recourse_fare/example/data.csv"
     bad_class_value: false
     target_column: "sum_total"
     predicted_column: "sum_total"
@@ -21,7 +21,7 @@ training:
   num_episodes_per_iteration: 10
 
   mcts:
-    name: "rl_mcts.core.mcts.MCTS"
+    name: "recourse_fare.core.mcts.MCTS"
     configuration_parameters:
       exploration: true
       number_of_simulations: 10
@@ -47,17 +47,17 @@ training:
 
 # Environment of this experiment
 environment:
-  name: "rl_mcts.example.mock_env.MockEnv"
+  name: "recourse_fare.example.mock_env.MockEnv"
 
   # Encoder for the environment of this experiment
   encoder:
-    name: "rl_mcts.example.mock_env.MockEnvEncoder"
+    name: "recourse_fare.example.mock_env.MockEnvEncoder"
     configuration_parameters:
       encoding_dim: 20
 
 # Policy used for this experiment
 policy:
-  name: "rl_mcts.core.agents.policy.Policy"
+  name: "recourse_fare.core.agents.policy.Policy"
   hidden_size: 50
   encoding_dim: 20 # This needs to be equal to the encoder embedding_dim
 
@@ -66,7 +66,7 @@ validation:
   iterations: 100
 
   mcts:
-    name: "rl_mcts.core.mcts.MCTS"
+    name: "recourse_fare.core.mcts.MCTS"
     configuration_parameters:
       exploration: false
       number_of_simulations: 5
