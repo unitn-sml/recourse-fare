@@ -5,7 +5,7 @@ README = (pathlib.Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="recourse-fare",
-    version=1.0,
+    version="0.1.0",
     description="lgorithmic Recourse with Reinforcement Learning and MCTS (Structured Machine Learning Lab)",
     long_description=README,
     long_description_content_type="text/markdown",
@@ -19,5 +19,16 @@ setup(
         "Programming Language :: Python :: 3.7",
     ],
     packages=find_packages(),
-    include_package_data=True
+    include_package_data=True,
+    install_requires=[
+        "pandas==1.3.5",
+        "numpy==1.21.6",
+        "colorama==0.4.6",
+        "scikit-learn==1.0.1",
+        "torch==1.12.1",
+        "causalgraphicalmodels==0.0.4",
+        "tensorboardX==2.6",
+        "tqdm==4.64.1",
+        "dill==0.3.6"
+    ]
 )

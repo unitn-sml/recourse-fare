@@ -101,8 +101,3 @@ class MockEnv(EnvironmentSCM):
     
     def reset_to_state(self, state):
         self.features = state
-
-    def get_additional_parameters(self):
-        return {
-            "types": self.arguments
-        }

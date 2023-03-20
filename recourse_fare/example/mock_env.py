@@ -147,19 +147,3 @@ class MockEnv(Environment):
                 mask.append(np.zeros(len(r)))
 
         return np.concatenate(mask, axis=None)
-
-    def get_additional_parameters(self):
-        return {
-            "types": self.arguments
-        }
-
-if __name__ == "__main__":
-
-    env = MockEnv()
-
-    env.init_env()
-    print(env.memory)
-    print(env._count_10_postcondition(None, None))
-    env._add()
-    print(env.memory)
-    print(env._count_10_postcondition(None, None))
