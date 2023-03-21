@@ -5,6 +5,7 @@ from ..buffer.trace_buffer import PrioritizedReplayBuffer
 from ..trainer.trainer import Trainer
 from ..trainer.trainer_statistics import MovingAverageStatistics
 from ..agents.policy import Policy
+from ..environment import Environment
 
 from tensorboardX import SummaryWriter
 
@@ -102,8 +103,88 @@ class FARE:
         :type load_model_path: str, optional
         """
         self.policy.load_state_dict(torch.load(load_model_path))
+    
+    def _predict_agent(self, env: Environment):
+        """Run FARE by only using the trained RL agent, without the MCTS component.
 
-    def predict(self, X, full_output=False, verbose=True):
+        :param env: experiment environment
+        :type env: Environment
+        :return: it returns the counterfactual example, the reward, the intervention
+        and the intervention cost
+        """
+        
+        observation = env.start_task()
+        state_h, state_c, state_h_args, state_c_args = self.policy.init_tensors()
+
+        wrong_program = False
+
+        trace = []
+        cost = []
+
+        depth = 0
+
+        while depth <= env.max_intervention_depth and not wrong_program:
+
+            # Compute priors
+            priors, _, arguments, state_h, state_c, state_h_args, state_c_args = self.policy.forward_once(observation, state_h, state_c, state_h_args, state_c_args)
+
+            # Choose action according to argmax over priors
+            program_index = torch.argmax(priors).item()
+            program_name = env.get_program_from_index(program_index)
+
+            # Mask arguments and choose arguments
+            arguments_mask = env.get_mask_over_args(program_index)
+            arguments = arguments * torch.FloatTensor(arguments_mask)
+            arguments_index = torch.argmax(arguments).item()
+            arguments_list = env.complete_arguments[arguments_index]
+
+            if not env.can_be_called(program_index, arguments_index):
+                wrong_program = True
+                trace.append(("STOP", 0))
+                cost.append(env.get_cost(env.prog_to_idx["STOP"], arguments_index))
+                depth += 1
+                continue
+
+            trace.append((program_name, arguments_list))
+            cost.append(env.get_cost(program_index, arguments_index))
+            depth += 1
+
+            # Apply action
+            if program_name == "STOP":
+                break
+            else:
+                if env.programs_library[program_name]['level'] == 0:
+                    observation = env.act(program_name, arguments_list)
+                else:
+                    wrong_program = True            
+
+        # Get final reward and end task
+        if depth <= env.max_intervention_depth and not wrong_program:
+            reward = env.get_reward()
+        else:
+            reward = 0.0
+
+        counterfactual = env.features.copy()
+
+        env.end_task()
+
+        return counterfactual, reward, trace, sum(cost)
+
+    def predict(self, X, full_output :bool=False,
+                verbose :bool=True, agent_only :bool=False,
+                mcts_only :bool=False):
+        """Generate counterfactual interventions given FARE.
+
+        :param X: the dataset
+        :param full_output: True if we want to return more than just the counterfactuals, defaults to False
+        :type full_output: bool, optional
+        :param verbose: if verbose, show a progress bar when performing inference, defaults to True
+        :type verbose: bool, optional
+        :param agent_only: run inference using only the trained agent, without MCTS, defaults to False
+        :type agent_only: bool, optional
+        :param mcts_only: run inferece using only the MCTS, without the trained agent, defaults to False
+        :type mcts_only: bool, optional
+        """
 
         X = X.to_dict(orient='records')
 
@@ -118,13 +199,27 @@ class FARE:
                 X[i].copy(),
                 self.model,
                 **self.environment_config.get("additional_parameters"))
+            
+            # If we are using only the agent
+            if agent_only:
+                counterfactual, reward, trace, cost = self._predict_agent(env_validation)
+                counterfactuals.append(counterfactual)
+                Y.append(reward)
+                trace.append(traces)
+                costs.append(cost)
+                root_nodes.append(None)
+                continue
+            
             mcts_validation = MCTS(
                 env_validation, self.policy,
                 **self.mcts_config
             )
 
-            mcts_validation.exploration = False
-            mcts_validation.number_of_simulations = 5
+            if mcts_only:
+                mcts_validation.dir_epsilon = 1.0
+            else:
+                mcts_validation.exploration = False
+                mcts_validation.number_of_simulations = 5
 
             # Sample an execution trace with mcts using policy as a prior
             trace, root_node, _ = mcts_validation.sample_intervention()
