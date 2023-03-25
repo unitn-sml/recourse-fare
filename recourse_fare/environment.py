@@ -48,7 +48,7 @@ class Environment(ABC):
         pass
 
     def get_state(self):
-        return self.features
+        return self.features.copy()
 
     def reset_env(self):
         self.has_been_reset = True

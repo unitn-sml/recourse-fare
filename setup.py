@@ -25,7 +25,7 @@ setup(
         "numpy==1.21.6",
         "colorama==0.4.6",
         "scikit-learn==1.0.1",
-        "torch==1.12.1",
+        "torch>=1.12.1",
         "causalgraphicalmodels==0.0.4",
         "tensorboardX==2.6",
         "tqdm==4.64.1",
