@@ -48,7 +48,6 @@ class FARE:
                  mcts_config=DEFAULT_MCTS_CONFIG,
                  batch_size=50,
                  training_buffer_size=200,
-                 sample_error_probab=0.1,
                  validation_steps = 10) -> None:
 
         # Black-box model we want to use
@@ -58,7 +57,6 @@ class FARE:
 
         self.batch_size = batch_size
         self.training_buffer_size = training_buffer_size
-        self.training_buffer_sample_error = sample_error_probab
 
         self.mcts_config = mcts_config
         self.environment_config = environment_config
@@ -83,9 +81,7 @@ class FARE:
     def _init_training_objects(self) -> None:
 
         # Initialize the replay buffer. It is needed to store the various traces for training
-        self.buffer = PrioritizedReplayBuffer(self.training_buffer_size,
-                                            p1=self.training_buffer_sample_error
-                                            )
+        self.buffer = PrioritizedReplayBuffer(self.training_buffer_size)
 
         # Set up the trainer algorithm
         self.trainer = Trainer(self.policy, self.buffer, batch_size=self.batch_size)

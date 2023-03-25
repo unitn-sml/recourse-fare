@@ -2,10 +2,9 @@ import numpy as np
 
 class PrioritizedReplayBuffer():
 
-    def __init__(self, max_length, p1=0.8):
+    def __init__(self, max_length):
         self.memory_task = []
         self.max_length = max_length
-        self.p1 = p1
         self.batch_length = 0
 
     def get_memory_length(self):
