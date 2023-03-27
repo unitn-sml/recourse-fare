@@ -7,6 +7,7 @@ from tqdm.auto import tqdm
 
 import pandas as pd
 
+import sklearn
 from sklearn.tree import _tree
 
 class EFARE():
@@ -81,6 +82,9 @@ class EFARE():
 
     def validation_recursive_tree(self, model, env, action, depth, cost, action_list, rules):
         
+        if len(model) == 0:
+            # This happens in case the model is not fit
+            return [[False, env.features.copy(), cost, action_list, rules]]
         if action == "STOP(0)":
             return [[True, env.features.copy(), cost, action_list, rules]]
         elif depth < 0:
@@ -93,15 +97,21 @@ class EFARE():
                 next_op = actions(None)
                 rules.append(["True"])
             else:
-
+                
+                # We can use get_feature_names_out only if we have sklearn > 1.0.0
                 if self.efare_preprocessor:
                     next_state = self.efare_preprocessor.transform(pd.DataFrame.from_records([env.get_state()]))
-                    transformed_columns = self.efare_preprocessor.get_feature_names_out(pd.DataFrame.from_records([env.get_state()]).columns)
-                    next_state = pd.DataFrame(next_state, columns=transformed_columns)
                 else:
                     next_state = pd.DataFrame.from_records([env.get_state()])
 
-                rules.append(self.extract_rule_from_tree(actions, next_state))
+                if sklearn.__version__ >= "1.0.0":
+                    if self.efare_preprocessor:
+                        transformed_columns = self.efare_preprocessor.get_feature_names_out(pd.DataFrame.from_records([env.get_state()]).columns)
+                        next_state = pd.DataFrame(next_state, columns=transformed_columns)
+                    rules.append(self.extract_rule_from_tree(actions, next_state))
+                else:
+                    raise UserWarning("EFARE rules extraction is disabled. Use a scikit-learn version greater than 1.0.0.")
+                
                 next_op = actions.predict(
                     next_state
                 )[0]

@@ -3,6 +3,8 @@ import pandas as pd
 
 import numpy as np
 
+import sklearn
+
 # Lambda closure, as per
 # https://stackoverflow.com/questions/34854400/python-dict-of-lambda-functions
 def make_closure(action):
@@ -142,8 +144,11 @@ class EFAREModel:
         df.drop(columns=["operation"], inplace=True)
 
         if preprocessor:
-            transformed_columns = preprocessor.get_feature_names_out(df.columns)
-            df = pd.DataFrame(preprocessor.transform(df), columns=transformed_columns)
+            if sklearn.__version__ >= "1.0.0":
+                transformed_columns = preprocessor.get_feature_names_out(df.columns)
+                df = pd.DataFrame(preprocessor.transform(df), columns=transformed_columns)
+            else:
+                df = preprocessor.transform(df)
 
         clf = tree.DecisionTreeClassifier()
         clf = clf.fit(df, Y.values)
