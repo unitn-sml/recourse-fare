@@ -28,6 +28,8 @@ class MCTSNode(ABC):
         self.args_index = None
         self.denom = 0.0
         self.estimated_qval = 0.0
+        self.cost = 0
+        self.single_action_cost = 0
 
         self.program_name = None
 
@@ -60,6 +62,8 @@ class MCTSNode(ABC):
             "denom": 0.0,
             "estimated_qval": 0.0,
             "program_name": None,
+            "cost": 0.0,
+            "single_action_cost": 0.0
         })
 
     def to_dict(self):
@@ -84,4 +88,6 @@ class MCTSNode(ABC):
             "h_lstm_args": self.h_lstm_args.clone(),
             "c_lstm_args": self.c_lstm_args.clone(),
             "program_name": self.program_name,
+            "cost": self.cost,
+            "single_action_cost": self.single_action_cost
         }

@@ -1,5 +1,4 @@
 from ..utils.functions import import_dyn_class, get_cost_from_tree, get_trace
-from ..data_loader import DataLoader
 from ..mcts.MCTS import MCTS
 from ..buffer.trace_buffer import PrioritizedReplayBuffer
 from ..trainer.trainer import Trainer
@@ -63,6 +62,12 @@ class FARE:
 
         self.validation_steps = validation_steps
 
+        self._init_policy(
+            environment_config,
+            policy_config
+        )
+    
+    def _init_policy(self, environment_config:dict, policy_config: dict):
         env = import_dyn_class(environment_config.get("class_name"))(None, None,
                                                                      **self.environment_config.get("additional_parameters"))
 
