@@ -103,7 +103,7 @@ class MCTSWeights(MCTS):
             value = float(value)
             return node, value, new_h.clone(), new_c.clone(), len(new_nodes)
 
-    def _play_episode(self, root_node: MCTSNode):
+    def _play_episode(self, root_node: MCTSNode, deterministic_actions: list=None):
         stop = False
         max_depth_reached = False
         illegal_action = False
@@ -134,7 +134,7 @@ class MCTSWeights(MCTS):
                     # run a simulation
                     self.recursive_call = False
                     simulation_max_depth_reached, has_expanded_node, node, value, failed_simulation, node_expanded = self._simulate(
-                        root_node)
+                        root_node, deterministic_actions)
 
                     total_node_expanded_simulation += node_expanded
 
@@ -182,6 +182,12 @@ class MCTSWeights(MCTS):
                 # Sample next action
                 mcts_policy, args_policy, program_to_call_index, args_to_call_index = self._sample_policy(root_node)
 
+                 # Force the deterministic action (this is for inference only)
+                if deterministic_actions is not None and len(deterministic_actions) > 0 and root_node.depth < len(
+                        deterministic_actions):
+                    program_to_call_index = deterministic_actions[node.depth][0]
+                    args_to_call_index = deterministic_actions[node.depth][1]
+
                 # Set new root node
                 root_node = [child for child in root_node.childs
                                  if child.program_from_parent_index == program_to_call_index
@@ -206,8 +212,67 @@ class MCTSWeights(MCTS):
 
         return root_node, max_depth_reached, illegal_action, total_node_expanded_simulation
 
+    def _simulate(self, node, deterministic_actions: list=None):
 
-    def sample_intervention(self) -> Union[Intervention, MCTSNode]:
+        stop = False
+        max_depth_reached = False
+        max_recursion_reached = False
+        has_expanded_a_node = False
+        failed_simulation = False
+        value = None
+        total_node_expanded = 0
+
+        while not stop and not max_depth_reached and not has_expanded_a_node and self.clean_sub_executions and not max_recursion_reached:
+
+            if node.depth >= self.env.get_max_depth():
+                max_depth_reached = True
+
+            elif len(node.childs) == 0:
+                _, value, _, _, new_childs_added = self._expand_node(node)
+                
+                total_node_expanded += new_childs_added
+
+                has_expanded_a_node = True
+
+                if new_childs_added == 0:
+                    failed_simulation = True
+                    break
+
+            else:
+                # Set up the deterministic action and args
+                if deterministic_actions is not None and len(deterministic_actions) > 0 and node.depth < len(
+                        deterministic_actions):
+                    deterministic_action = deterministic_actions[node.depth][0]
+                    deterministic_args = deterministic_actions[node.depth][1]
+                else:
+                    deterministic_action = None
+                    deterministic_args = None
+
+                best_node = self._estimate_q_val(node, deterministic_action, deterministic_args)
+
+                # Check this corner case. If this happened, then we
+                # failed this simulation and its reward will be -1.
+                if best_node is None:
+                    failed_simulation = True
+                    break
+                else:
+                    node = best_node
+
+                program_to_call_index = node.program_from_parent_index
+                program_to_call = self.env.get_program_from_index(program_to_call_index)
+                arguments = node.args
+
+                if program_to_call_index == self.env.get_stop_action_index():
+                    stop = True
+
+                elif self.env.get_program_level(program_to_call) == 0:
+                    observation = self.env.act(program_to_call, arguments)
+                    node.observation = observation.clone()
+                    node.env_state = self.env.get_state().copy()
+
+        return max_depth_reached, has_expanded_a_node, node, value, failed_simulation, total_node_expanded
+
+    def sample_intervention(self, deterministic_actions: list=None) -> Union[Intervention, MCTSNode]:
         """
         Sample an intervention from the tree by running many simulations until
         we converge or we reach the max tree depth. The intervention is stored in
@@ -237,7 +302,7 @@ class MCTSWeights(MCTS):
 
         self.root_node = root
 
-        final_node, max_depth_reached, illegal_action, total_node_expanded = self._play_episode(root)
+        final_node, max_depth_reached, illegal_action, total_node_expanded = self._play_episode(root, deterministic_actions)
 
         if not illegal_action:
             final_node.selected = True
@@ -259,7 +324,7 @@ class MCTSWeights(MCTS):
         return Intervention(self.lstm_states, self.lstm_args_states, self.programs_index, self.observations, self.previous_actions, task_reward,
                               self.program_arguments, self.rewards, self.mcts_policies, self.clean_sub_executions), self.root_node, total_node_expanded
 
-    def _estimate_q_val(self, node):
+    def _estimate_q_val(self, node, deterministic_action: int, deterministic_args: int):
 
         best_child = None
         best_val = -np.inf
@@ -270,6 +335,13 @@ class MCTSWeights(MCTS):
         repeated_actions_penalty = np.sum([v for k, v in repeated_actions.items()])
 
         for child in node.childs:
+            
+            # If we supply a deterministic action, then we force the q val estimation
+            # to choose this.
+            if deterministic_action is not None and deterministic_args is not None:
+                if child.program_from_parent_index == deterministic_action and child.args_index == deterministic_args:
+                    return child
+
             if child.prior > 0.0:
                 q_val_action = compute_q_value(child, self.qvalue_temperature)
 
@@ -277,10 +349,27 @@ class MCTSWeights(MCTS):
                                   * (1.0 / (1.0 + child.visit_count)))
                 q_val_action += action_utility
 
+                parent_prog_lvl = self.env.programs_library[self.env.idx_to_prog[node.program_index]]['level']
+                action_prog_lvl = self.env.programs_library[self.env.idx_to_prog[child.program_from_parent_index]][
+                    'level']
+
+                if parent_prog_lvl == action_prog_lvl:
+                    # special treatment for calling the same program or a level 0 action.
+                    action_level_closeness = self.level_closeness_coeff * np.exp(-1)
+                elif action_prog_lvl == 0:
+                    action_level_closeness = self.level_closeness_coeff * np.exp(-self.level_0_penalty)
+                else:
+                    # special treatment for STOP action
+                    action_level_closeness = self.level_closeness_coeff * np.exp(-1)
+
+                q_val_action += action_level_closeness
+
                 q_val_action += self.action_cost_coeff * (0.97 ** child.single_action_cost)
 
-                repeated_actions_penalty = repeated_actions.get(child.program_from_parent_index, 0)
-                q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))
+                if child.program_from_parent_index in repeated_actions:
+                    q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))
+                else:
+                    q_val_action += self.action_duplicate_cost * np.exp(-repeated_actions_penalty)
 
                 if q_val_action > best_val:
                     best_val = q_val_action

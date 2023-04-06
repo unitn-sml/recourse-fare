@@ -1,7 +1,12 @@
 import torch
-from ..environment import Environment
-
 import importlib
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import numpy as np
+
+from itertools import permutations
 
 def import_dyn_class(path: str):
     """
@@ -17,11 +22,6 @@ def import_dyn_class(path: str):
     class_ = getattr(module, class_name)
 
     return class_
-
-def print_trace(trace, env: Environment) -> None:
-    print(f"Trace ({len(trace.previous_actions)}):")
-    for p in trace.previous_actions[1:]:
-        print(f"\t {env.get_program_from_index(p)}")
 
 def fix_policy(policy):
     """
@@ -104,3 +104,162 @@ def get_trace(env, root_node):
         for child in cur_node.childs:
             stack.append(child)
     return trace
+
+def backtrack_eus(env, potential_set, max_choice_set, choice_generator, user, sampler, asked_questions,
+                  choices_id, choices, random_choice_set=False):
+
+    # If random, then pick up three actions which we did not see before:
+    if random_choice_set: 
+        
+        # Add additional fallback
+        if len(potential_set) < max_choice_set:
+            return None
+
+        already_asked = True
+        counter = 10
+        while(already_asked and counter > 0):
+            already_asked = False
+            ids = np.random.choice(list(range(len(potential_set))), max_choice_set, replace=False)
+            choices = [potential_set[x] for x in ids]
+            for (c_env, q) in asked_questions:
+                current_c = set([(c[0], c[1], tuple(c[2])) for c in choices])
+                if set(q) == current_c and c_env == env.features:
+                    already_asked = True
+                    counter -= 1
+                    break
+        
+        return choices
+
+    if len(choices) >= max_choice_set or len(potential_set) == len(choices_id):
+
+        # Check if we already asked this set
+        already_asked = False
+        for (c_env, q) in asked_questions:
+            current_c = set([(c[0], c[1], tuple(c[2])) for c in choices])
+            if set(q) == current_c and c_env == env.features:
+                already_asked = True
+                break
+
+        # If we did, we just return None and we continue the cycle.
+        # If it is okay, we just return the choices done so far
+        if already_asked:
+            return None
+        else:
+            return choices
+
+    else:
+
+        # Compute eus values so far
+        eus_values = []
+
+        # Compute current eus value
+        current_eus_value = choice_generator.compute_eus(env, user, sampler.get_current_particles(), choices)
+
+        for id, x in enumerate(potential_set):
+
+            # Skip actions we already saw
+            if id in choices_id:
+                continue
+
+            program = x[0]
+            value = x[1]
+            intervention = x[2]
+            prev_memory_status = x[3]
+            prev_initial_memory = x[4]
+
+            # Compute eus value
+            eus = choice_generator.compute_eus(env, user, sampler.get_current_particles(), [x] + choices)
+            eus_values.append(
+                [id, program, value, eus-current_eus_value, intervention, prev_memory_status.copy(), prev_initial_memory.copy()])
+
+        eus_values = sorted(eus_values, key=lambda x: x[3], reverse=True)
+
+        resulting_choice = None
+        if len(eus_values) > 0:
+
+            for idx in range(len(eus_values)):
+
+                best_choice_atm = eus_values[idx][1:]
+                best_choice_atm.pop(2)
+
+                choices.append(best_choice_atm)
+                choices_id.append(eus_values[idx][0])
+
+                # Recursive call with the new choice set
+                resulting_choice = backtrack_eus(env, potential_set, max_choice_set, choice_generator, user, sampler, asked_questions, choices_id,
+                          choices)
+
+                # Pop previous choice and redo everything if this didn't work
+                if resulting_choice is None:
+                    choices.pop()
+                    choices_id.pop()
+                else:
+                    break
+
+        return resulting_choice
+
+def plot_sampler(chain, dim, sampler=None, start=0):
+    plt.figure(figsize=(16,1.5*(dim-start)))
+    for n in range(dim-start):
+        plt.subplot2grid((dim-start, 1), (n, 0))
+        plt.plot(chain[:,:,n+start], alpha=0.5)
+    plt.tight_layout()
+    plt.show()
+
+def compute_average_regret(full_potential_actions, choice_set, particles, user):
+
+    # 0) Save weights to compute them again later
+    pw_weights, pw_nodes  = user.features.estimated_graph.get_weights()
+
+    # 1) Compute intervention with the best EU
+    best_eu = []
+    for _, _, intervention, choice_env, _ in full_potential_actions:
+        current_cost = 0
+        for w in particles:
+            w = {k: v for k, v in zip(pw_nodes, w)}
+            user.features.estimated_graph.update_weights(w)
+        
+            int_cost_tmp = user.features.compute_intervention_cost(intervention,
+                                                                    custom_env=choice_env.copy(),
+                                                                    estimated=True)
+            current_cost += int_cost_tmp 
+        best_eu.append((np.mean(current_cost), intervention, choice_env.copy()))
+
+    # 1.2) Sort the EU and pick the optimal intervention
+    best_eu = sorted(best_eu, key=lambda x: x[0])
+    best_eu_intervention = best_eu[0][1]
+    best_eu_state = best_eu[0][2]
+
+    differences = []
+    # 2) For each weight, compute the difference between the optimal cost
+    for w in particles:
+        
+        w = {k: v for k, v in zip(pw_nodes, w)}
+        user.features.estimated_graph.update_weights(w)
+        
+        intervention_costs = []
+        for _, _, intervention, choice_env, _ in choice_set:
+            int_cost_tmp = user.features.compute_intervention_cost(intervention,
+                                                                    custom_env=choice_env.copy(),
+                                                                    estimated=True)
+            intervention_costs.append((int_cost_tmp, intervention))
+        
+        # Get the max_O C(I|w)
+        intervention_costs = sorted(intervention_costs, key=lambda x: x[0])
+        best_cs_eu_cost = intervention_costs[0][0]
+
+        # Compute the cost of the intervention maximizing the EU with the current weight
+        best_eu_cost = user.features.compute_intervention_cost(best_eu_intervention, custom_env=best_eu_state.copy(), estimated=True)
+        
+        # Compute the difference
+        differences.append(
+            best_cs_eu_cost-best_eu_cost
+        )
+    
+    regret = sum(differences)/len(differences)
+
+    # Restore the previous weights
+    w = {k: v for k, v in zip(pw_nodes, pw_weights)}
+    user.features.estimated_graph.update_weights(w)
+
+    return regret

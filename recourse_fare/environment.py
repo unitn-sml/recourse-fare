@@ -195,3 +195,17 @@ class Environment(ABC):
 
     def get_stop_action_index(self):
         return self.programs_library["STOP"]["index"]
+    
+    def get_current_actions(self):
+
+        current_actions = []
+        for precondition,f in self.prog_to_precondition.items():
+            if self.programs_library.get(precondition).get("level") <= 0 and precondition != "STOP":
+                function_args = self.arguments.get(self.programs_library.get(precondition).get("args"))
+                for arg in function_args:
+                    prog_idx = self.prog_to_idx.get(precondition)
+                    args_idx = self.complete_arguments.index(arg)
+                    if self.can_be_called(prog_idx, args_idx):
+                        current_actions.append([precondition, arg, prog_idx, args_idx])
+
+        return current_actions
