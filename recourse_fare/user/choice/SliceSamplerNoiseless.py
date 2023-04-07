@@ -2,35 +2,22 @@ import zeus
 import numpy as np
 import copy
 
-#from ...utils.functions import plot_sampler
-
 from .SliceSampler import SliceSampler
-from ...utils.Mixture import MixtureModel
 from ...utils.functions import plot_sampler
 
 class SliceSamplerNoiseless(SliceSampler):
 
-    def __init__(self, nodes, nparticles=100, mu_prior=None, cov_prior=None,
-                 nwalkers=30, nsteps=100, verbose=False, epsilon=1.5,
-                 temperature=1.5, myopic=False,
-                 const_sup=100, const_inf=1, keep_particles=True):
-        super().__init__(nodes, nparticles, mu_prior, cov_prior,
-                 nwalkers, nsteps, verbose, epsilon, temperature, myopic)
+    def __init__(self, nodes, mixture, nparticles=100, nsteps=100, temperature=1.5, keep_particles=True, verbose=False):
+        
+        super().__init__(
+            nodes, nparticles, nsteps, temperature, verbose
+        )
 
         self.particles_likelihood = []
-
-        self.const_sup = const_sup
-        self.const_inf = const_inf
-
         self.keep_particles = keep_particles
-
-        self.mixture = MixtureModel(dimensions=self.ndim)
-
-        self.current_particles = np.random.uniform(self.const_inf, self.const_sup, (100,self.ndim))
+        self.mixture = mixture
     
     def log_boundaries(self, w_weights, constraints, env, user):
-        if not all([self.const_sup >= v >=  self.const_inf for v in w_weights]):
-            return -np.inf
         if not all([v != 0.0 for v in w_weights]):
             return -np.inf
         w = {k: v for k, v in zip(self.nodes, w_weights)}
@@ -141,7 +128,7 @@ class SliceSamplerNoiseless(SliceSampler):
             
             if len(self.current_particles) < self.nparticles:
                 # Each redo, we increase the number of particles we sample
-                w_current = np.random.uniform(self.const_inf, self.const_sup, (20000*(5-redo+1),self.ndim))
+                w_current = self.mixture.sample(20000*(5-redo+1))
                 w_current = list(filter(
                     lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
                     w_current
@@ -152,6 +139,7 @@ class SliceSamplerNoiseless(SliceSampler):
             
             if self.verbose:
                 print("\nFound particles: ", len(self.current_particles))
+            
             if len(self.current_particles) < self.nparticles:
                 redo -= 1
             else:
@@ -185,7 +173,7 @@ class SliceSamplerNoiseless(SliceSampler):
 
         if self.verbose:
             print("CURRENT PARTICLES: ", len(self.current_particles))
-            #plot_sampler(sampler.get_chain(), self.ndim, sampler=sampler)
+            plot_sampler(sampler.get_chain(), self.ndim, sampler=sampler)
 
         # Compute the likelihood for each particle (for this case is equal to the pdf, in case of the logistic noise is different)
         self.particles_likelihood = [self.logpost(p, self.constraints, copy.deepcopy(env), copy.deepcopy(user)) for p in self.current_particles]

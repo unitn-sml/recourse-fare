@@ -13,17 +13,19 @@ class MixtureModel:
         for mu_a in possible_mus:
             dim=len(mu_a)
             cov_a = np.zeros((dim, dim), np.float64)
-            np.fill_diagonal(cov_a, np.ones(dim)*20)
+            np.fill_diagonal(cov_a, np.ones(dim))
             self.mixtures_params.append((mu_a, cov_a))
     
     def sample(self, N, mean=False, only_components=False, noise_variance=1, verbose=False):
         samples = []
-        for _ in tqdm.tqdm(range(N), disable=not verbose):
-            current_sample = []
-            for mu, cov in self.mixtures_params:
-                current_sample.append(
-                    multivariate_normal.rvs(mu, cov, 1) + norm.rvs(0, noise_variance, 1)
-                )
+
+        current_samples = []
+        for mu, cov in self.mixtures_params:
+            current_samples.append(
+                multivariate_normal.rvs(mu, cov, N)
+            )
+        
+        for current_sample in tqdm.tqdm(zip(*current_samples), disable=not verbose):
             
             if mean:
                 samples.append(

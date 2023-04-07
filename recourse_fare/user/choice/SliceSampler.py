@@ -7,8 +7,7 @@ from copy import deepcopy
 
 class SliceSampler:
 
-    def __init__(self, nodes, nparticles=100, mu_prior=None, cov_prior=None,
-                 nwalkers=30, nsteps=100, verbose=True, epsilon=1.5, temperature=1.5, myopic=False):
+    def __init__(self, nodes, nparticles=100, nsteps=100, temperature=1.5, verbose=True):
 
         self.nodes = nodes
 
@@ -22,19 +21,9 @@ class SliceSampler:
 
         self.constraints = []
 
-        self.mu_zero = [0 for _ in range(self.ndim)]
-        self.cov_zer = np.zeros((self.ndim, self.ndim), np.float64)
-        np.fill_diagonal(self.cov_zer, 1)
-
-        self.start = np.random.multivariate_normal(self.mu_zero, self.cov_zer, self.nwalkers)
-
         self.current_particles = []
 
-        self.epsilon = epsilon
-
         self.temperature = temperature
-
-        self.myopic = myopic
 
     def __deepcopy__(self, memo):
         cls = self.__class__
