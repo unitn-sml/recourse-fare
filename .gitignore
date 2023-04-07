@@ -1,6 +1,6 @@
 # Custom
 ignore
-*.pth
+recourse_fare/example/notebooks/models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -22,7 +22,7 @@ class AdultEnvironment(EnvironmentWeights):
         self.preprocessor = preprocessor
 
         # The maximum length of an intervention. It considers also the STOP action.
-        self.max_intervention_depth = 7
+        self.max_intervention_depth = 10
 
         # Dictionary specifying, for each action, the corresponding implementation of
         # such action in the environment.
@@ -74,7 +74,7 @@ class AdultEnvironment(EnvironmentWeights):
                                                 "EDU": ['Preschool', '1st-4th', '5th-6th', '7th-8th', '9th', '10th', '11th', '12th', 'HS-grad', 'Some-college', 'Bachelors', 'Masters', 'Doctorate', 'Assoc-acdm', 'Assoc-voc', 'Prof-school'],
                                                 "OCC": ["Tech-support", "Craft-repair", "Other-service", "Sales", "Exec-managerial", "Prof-specialty", "Handlers-cleaners", "Machine-op-inspct", "Adm-clerical", "Farming-fishing", "Transport-moving", "Priv-house-serv", "Protective-serv", "Armed-Forces"],
                                                 "HOUR": list(range(1,25))+list(range(-1,-25)),
-                                                "CAP": np.linspace(100,10000, num=20).tolist()+np.linspace(-10000, -100, num=20).tolist(),
+                                                "CAP": np.linspace(10,30000, num=50).tolist()+np.linspace(-30000, -10, num=50).tolist(),
                                                 "NONE": [0]
                                             }.items()))
 

@@ -1,5 +1,5 @@
 from mpi4py import MPI
-import pickle
+import dill as pickle
 import random
 
 from sklearn.model_selection import train_test_split
@@ -9,19 +9,30 @@ from recourse_fare.models.InteractiveFARE import InteractiveFARE
 
 from recourse_fare.example.wfare.adult_scm import AdultSCM
 from recourse_fare.user.user import NoiselessUser
+from recourse_fare.utils.Mixture import MixtureModel
 
 import numpy as np
 import pandas as pd
 import torch
 
 from argparse import ArgumentParser
-import yaml
+
+MIXTURE_MEAN_LIST =[
+    [37, -25, 20, 5, -17, 42, -47, 2, 36, 46, -28, -33, 3, -3, 27],
+    [-11, 19, 38, -47, 8, -22, 31, 21, 13, -2, -18, -21, -1, -1, -1],
+    [-1, 3, -12, 20, -35, 38, 22, -3, 15, 21, -28, 3, -43, -5, -25],
+    [-16, -1, 27, 41, 37, -5, -16, -16, -39, -49, -19, 19, 1, -31, -10],
+    [19, -19, -7, -45, -40, -43, 33, 5, -44, 49, -22, -4, 28, 20, -13],
+    [13, -25, -14, -10, 35, 32, -45, 43, 29, -24, 47, 16, 8, 22, 10]
+]
 
 if __name__ == "__main__":
 
     # Add the argument parser
     parser = ArgumentParser()
     parser.add_argument("--questions", default=3, type=int, help="How many questions we shoudl ask.")
+    parser.add_argument("--test_set_size", default=100, type=int, help="How many users we should pick from the test set for evaluation.")
+    parser.add_argument("--verbose", default=False, action="store_true", help="Make the procedure verbose.")
 
     # Parse the arguments
     args = parser.parse_args()
@@ -41,65 +52,56 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
-    # Read data and preprocess them
-    X = pd.read_csv("recourse_fare/example/wfare/data.csv")[0:5000]
-    y = X.income_target.apply(lambda x: 1 if x=="<=50K" else 0)
-    X.drop(columns=["income_target", "predicted"], inplace=True)
+    # Read the trained WFARE method from disk
+    # The WFARE method contains the following:
+    # - Blackbox classifier
+    # - Custom preprocessor
+    recourse_method = pickle.load(open("recourse_fare/example/wfare/recourse.pth", "rb"))
 
-    # We drop some columns we do not consider actionable. It makes the problem less interesting, but it does
-    # show the point about how counterfactual interventions works. 
-    #X.drop(columns=["fnlwgt", "age", "race", "sex", "native_country", "relationship", "education_num"], inplace=True)
-    X.drop(columns=["fnlwgt", "age", "sex", "native_country", "relationship", "education_num"], inplace=True)
+    # Create the user model required
+    user = NoiselessUser()
 
-    # Split the dataset into train/test
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2023)
-
-    X_train.reset_index(drop=True, inplace=True)
-    X_test.reset_index(drop=True, inplace=True)
-    y_test.reset_index(drop=True, inplace=True)
-
-    # Generate random weights. Weights needs to be non-null and positive
-    single_weights = np.ones(15)
-    W_train = [single_weights for _ in range(len(X_train))]
-    W_test = np.abs(np.random.normal(loc=25, size=(len(X_test), 15)))
-
-    # Build weights dataframes
+    # Get edges and nodes 
     tmp_scm = AdultSCM(None)
     keys_weights = [(node, node) for node in tmp_scm.scm.nodes()]
     keys_weights += [(parent, node) for parent,node in tmp_scm.scm.edges()]
 
+    # Build the mixture (prior for the estimation)
+    mixture = MixtureModel(
+        mixture_means=MIXTURE_MEAN_LIST
+    )
+
+    # Create and interactive FARE object and predict the test instances
+    interactive = InteractiveFARE(recourse_method, user, mixture, keys_weights,
+                                  questions=int(args.questions), mcmc_steps=8,
+                                  verbose=args.verbose)
+
     # Build the dataframes with the weights
-    W_train = pd.DataFrame(W_train, columns=keys_weights)
-    W_test = pd.DataFrame(W_train, columns=keys_weights)
+    W_test = pd.read_csv("recourse_fare/example/wfare/weights_test.csv")
+    W_test.rename(
+        columns={c: eval(c) for c in W_test.columns},
+        inplace=True
+    )
 
-    # We are the master process
-    if rank == 0:
-
-        # Read the trained WFARE method from disk
-        # The WFARE method contains the following:
-        # - Blackbox classifier
-        # - Custom preprocessor
-        recourse_method = pickle.load(open("recourse.pth", "rb"))
-
-        # Create the user model required
-        user = NoiselessUser()
-
-        # Create and interactive FARE object and predict the test instances
-        interactive = InteractiveFARE(recourse_method, user, keys_weights, questions=int(args.questions), mcmc_steps=100, verbose=False)
-
-        # Send the interactive FARE method to the childs
-        bcast_data = interactive
+    # Read data
+    X = pd.read_csv("recourse_fare/example/wfare/test_data.csv")
     
-    interactive = comm.bcast(bcast_data, root=0)
+    # Keep only the instances which are negatively classified
+    X["predicted"] = recourse_method.model.predict(
+        recourse_method.environment_config.get("additional_parameters").get("preprocessor").transform(X)
+    )
+    X = X[X.predicted == 1]
+    X.drop(columns="predicted", inplace=True)
+    X.reset_index(inplace=True, drop=True)
 
     # Given how many users we want to analyze, get a slice of
     # the data with the corresponding users
-    iterations = 2
+    iterations = args.test_set_size
     perrank = iterations // size
     data_slice = (0 + rank * perrank,  0 + (rank + 1) * perrank)
 
     # Current slice
-    X_test_slice, W_test_slice = X_test[data_slice[0]:data_slice[1]], W_test[data_slice[0]:data_slice[1]]
+    X_test_slice, W_test_slice = X[data_slice[0]:data_slice[1]], W_test[data_slice[0]:data_slice[1]]
 
     # Generate the counterfactuals and traces
     (counterfactuals, Y, traces, costs, _), W_updated, failed_users = interactive.predict(X_test_slice, W_test_slice, full_output=True)

@@ -12,7 +12,7 @@ import pandas as pd
 
 class InteractiveFARE:
 
-    def __init__(self, recourse_model: WFARE, user: User, features: list, questions: int=10, choice_set_size: int=2,
+    def __init__(self, recourse_model: WFARE, user: User, mixture: MixtureModel, features: list, questions: int=10, choice_set_size: int=2,
                  mcmc_steps=100, n_particles=100, verbose: bool=False) -> None:
         self.questions = questions
         self.choice_set_size = choice_set_size
@@ -25,7 +25,7 @@ class InteractiveFARE:
         self.environment_config = self.recourse_model.environment_config
         self.mcts_config = self.recourse_model.mcts_config
 
-        self.mixture = MixtureModel(dimensions=len(features))
+        self.mixture = mixture
 
         self.sampler = SliceSamplerNoiseless(nodes=features, 
                                              nsteps=mcmc_steps,

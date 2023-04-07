@@ -9,79 +9,15 @@ from sklearn.metrics import classification_report, accuracy_score
 from recourse_fare.models.WFARE import WFARE
 
 from recourse_fare.example.wfare.adult_scm import AdultSCM
+from recourse_fare.utils.preprocess.fast_preprocessor import FastPreprocessor
+from recourse_fare.utils.Mixture import MixtureModel
 
 import pandas as pd
 import numpy as np
 
-from pandas.api.types import is_string_dtype
-from pandas.api.types import is_numeric_dtype
-
 import os
 
-class FastPreprocessor:
-
-    def __init__(self, numerical_encoding="minmax", categorical_encoding="ordinal") -> None:        
-        self.constants = {}
-        self.feature_names_ordering = None
-
-        self.numerical_cols = set()
-        self.categorical_cols = set()
-
-        self.num_encoding = numerical_encoding
-        self.cat_encoding = categorical_encoding
-
-    def fit(self, data: pd.DataFrame):
-
-        self.feature_names_ordering = list(data.columns)
-
-        for c in self.feature_names_ordering:
-            if is_numeric_dtype(data[c]):
-                self.numerical_cols.add(c)
-                self.constants[c] = [
-                    data[c].min(), data[c].max()
-                ]
-            elif is_string_dtype(data[c]):
-                 self.categorical_cols.add(c)
-                 self.constants[c] = { v:k for k,v, in enumerate(data[c].unique())}
-            else:
-                print(f"Skipping {c}. It is not string nor numeric.")
-    
-    def get_feature_names_out(self):
-        return self.feature_names_ordering
-
-    def transform_dict(self, data: dict, type="values") -> dict:
-        transformed = data.copy()
-
-        for c in self.feature_names_ordering:
-            if c in self.numerical_cols:
-                min_val, max_val = self.constants.get(c)
-                transformed[c] = 1+(transformed[c]-min_val)/(max_val-min_val)
-            elif c in self.categorical_cols:
-                transformed[c] = 1+self.constants[c].get(transformed[c], 0)
-        
-        if type == "values":
-            return np.array([
-               transformed[c] for c in self.feature_names_ordering
-            ])
-        else:
-            return transformed
-
-    def transform(self, data: pd.DataFrame, type="values") -> pd.DataFrame:
-        transformed = data.copy()
-
-        for c in self.feature_names_ordering:
-            if is_numeric_dtype(data[c]):
-                min_val, max_val = self.constants.get(c)
-                transformed[c] = 1+(transformed[c]-min_val)/(max_val-min_val)
-            elif is_string_dtype(data[c]):
-                transformed[c] = transformed[c].apply(
-                    lambda x: 1+self.constants[c].get(x, 0)
-                )
-        
-        if type == "values":
-            return transformed.values
-        else:
-            return transformed
+import dill as pickle
 
 if __name__ == "__main__":
 
@@ -96,7 +32,8 @@ if __name__ == "__main__":
     # We drop some columns we do not consider actionable. It makes the problem less interesting, but it does
     # show the point about how counterfactual interventions works. 
     #X.drop(columns=["fnlwgt", "age", "race", "sex", "native_country", "relationship", "education_num"], inplace=True)
-    X.drop(columns=["fnlwgt", "age", "sex", "native_country", "relationship", "education_num"], inplace=True)
+    #X.drop(columns=["fnlwgt", "age", "sex", "race", "native_country", "relationship", "education_num"], inplace=True)
+    X.drop(columns=["fnlwgt", "age", "sex", "race", "native_country", "relationship", "education_num"], inplace=True)
 
     # Split the dataset into train/test
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2023)
@@ -105,10 +42,15 @@ if __name__ == "__main__":
     X_test.reset_index(drop=True, inplace=True)
     y_test.reset_index(drop=True, inplace=True)
 
+    # Save the training/testing datasets
+    X_train.to_csv("train_data.csv", index=None)
+    X_test.to_csv("test_data.csv", index=None)
+
     # Generate random weights. Weights needs to be non-null and positive
-    single_weights = np.ones(15)
+    mixture = MixtureModel(dimensions=15)
+    single_weights = mixture.sample(1)
     W_train = [single_weights for _ in range(len(X_train))]
-    W_test = np.abs(np.random.normal(loc=0, size=(len(X_test), 15)))+1
+    W_test = mixture.sample(len(X_test))
 
     # Build weights dataframes
     tmp_scm = AdultSCM(None)
@@ -116,7 +58,10 @@ if __name__ == "__main__":
     keys_weights += [(parent, node) for parent,node in tmp_scm.scm.edges()]
 
     W_train = pd.DataFrame(W_train, columns=keys_weights)
-    W_test = pd.DataFrame(W_train, columns=keys_weights)
+    W_test = pd.DataFrame(W_test, columns=keys_weights)
+
+    # Save weights to disk
+    W_test.to_csv("weights_test.csv", index=None)
 
     # Build a preprocessing pipeline, which can be used to preprocess
     # the elements of the dataset.
@@ -141,9 +86,9 @@ if __name__ == "__main__":
     X_train.drop(columns="predicted", inplace=True)
 
     policy_config= {
-        "observation_dim": 8,
-        "encoding_dim": 25,
-        "hidden_size": 25
+        "observation_dim": 7,
+        "encoding_dim": 15,
+        "hidden_size": 15
     }
 
     environment_config = {
@@ -155,19 +100,20 @@ if __name__ == "__main__":
     
     mcts_config = {
         "exploration": True,
-        "number_of_simulations": 10,
+        "number_of_simulations": 15,
         "dir_epsilon": 0.3,
         "dir_noise": 0.3
     }
 
     # Train a FARE model given the previous configurations
-    model = WFARE(blackbox_model, policy_config, environment_config, mcts_config, batch_size=50)
+    model = WFARE(blackbox_model, policy_config, environment_config, mcts_config, batch_size=100)
     if not os.path.isfile("fare.pth"):
         model.fit(X_train, W_train, max_iter=1000, tensorboard="./wfare")
         # We save the trained FARE model to disc
         model.save("fare.pth")
     else:
         model.load("fare.pth")
+    pickle.dump(model, open("recourse.pth", "wb"))
 
     # For testing, we use the test data
     output = blackbox_model.predict(preprocessor.transform(X_test))
@@ -180,6 +126,6 @@ if __name__ == "__main__":
     _, Y_agent, _, _, _ = model.predict(X_test[0:100], W_test[0:100], full_output=True, agent_only=True)
     _, Y_mcts, _, _, _ = model.predict(X_test[0:100], W_test[0:100], full_output=True, mcts_only=True)
     
-    print(accuracy_score(Y_full, y_test[:100]))
-    print(accuracy_score(Y_agent, y_test[:100]))
-    print(accuracy_score(Y_mcts, y_test[:100]))
+    print(sum(Y_full)/len(Y_full))
+    print(sum(Y_agent)/len(Y_agent))
+    print(sum(Y_mcts)/len(Y_mcts))

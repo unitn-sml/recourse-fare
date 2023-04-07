@@ -286,10 +286,11 @@ class FARE:
                 training_losses.get("arguments").append(args_loss)
                 training_losses.get("total_nodes").append(node_expanded)
 
+                # We save the trainer policy as the object policy
+                self.policy = self.trainer.policy
+
                 # Perform the validation step
                 if iteration % self.validation_steps == 0:
-
-                    self.policy = self.trainer.policy
 
                     _, validation_rewards, traces, costs, _ = self.predict(
                         X.sample(10),

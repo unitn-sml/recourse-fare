@@ -5,9 +5,12 @@ import numpy as np
 
 class MixtureModel:
 
-    def __init__(self, dimensions=10, k=6):
+    def __init__(self, dimensions=10, k=6, mixture_means: list = None):
 
-        possible_mus = np.random.randint(-50, 50, size=(k, dimensions))
+        if mixture_means:
+            possible_mus = mixture_means
+        else:
+            possible_mus = np.random.randint(-50, 50, size=(k, dimensions))
 
         self.mixtures_params = []
         for mu_a in possible_mus:
