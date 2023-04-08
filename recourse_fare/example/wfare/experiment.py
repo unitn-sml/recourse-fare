@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
         user_idx = []
         intervention_costs = []
-        failed_users = []
+        failed_users_all = []
         validity = []
         all_traces = []
 
@@ -130,12 +130,12 @@ if __name__ == "__main__":
             user_idx += user_range
             validity += Y
             intervention_costs += costs
-            failed_users += failed_users
+            failed_users_all += failed_users
             
             all_traces += [[idx, p,a] for t, idx in zip(traces, user_range) for p,a in t]
 
         # Save the validity, cost and elicitation result to disk
-        data = pd.DataFrame(list(zip(user_idx, validity, intervention_costs, failed_users)), columns=["user_idx","recourse", "cost", "elicitation"])
+        data = pd.DataFrame(list(zip(user_idx, validity, intervention_costs, failed_users_all)), columns=["user_idx","recourse", "cost", "elicitation"])
         data.to_csv(f"validity_cost_elicitation-{args.questions}.csv", index=None)
 
         # Save the traces to disk
