@@ -64,7 +64,8 @@ class InteractiveFARE:
                 X_dict[i].copy(),
                 estimated_weights,
                 self.model,
-                **self.environment_config.get("additional_parameters"))
+                **self.environment_config.get("additional_parameters")
+            )
             
             # Store the previously asked actions to avoid asking them again.
             asked_actions = []
@@ -106,9 +107,11 @@ class InteractiveFARE:
                 if can_continue:
                     # Show the choices to the user and let her pick the best one
                     # We supply the user the real weights.
+                    env.structural_weights.set_scm_structure(kwargs.get("random_graph")[i])
                     best_action, best_value, best_intervention, best_previous_state, _ = self._ask_user(
                         env, choices, W_dict[i].copy()
                     )
+                    env.structural_weights.set_scm_structure(-1)
                     assert env.features == current_env_state
 
                     # Sample the weights given the current user answers
@@ -165,14 +168,14 @@ class InteractiveFARE:
         # weight aware model.
         if full_output:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), full_output=full_output, **kwargs
+                X, pd.DataFrame.from_records(W_updated), full_output=full_output
             ), pd.DataFrame.from_records(W_updated), failed_user_estimation
         else:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), **kwargs
+                X, pd.DataFrame.from_records(W_updated)
             )
     
-    def evaluate_trace_costs(self, X, W, traces):
+    def evaluate_trace_costs(self, X, W, traces, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -187,6 +190,9 @@ class InteractiveFARE:
                 W_dict[idx].copy(),
                 self.model,
                 **self.environment_config.get("additional_parameters"))
+            
+            # Set random type
+            env.structural_weights.set_scm_structure(kwargs.get("random_graph")[idx])
             
             # Compute the intervention costs
             t_cost = self.user.compute_intervention_cost(

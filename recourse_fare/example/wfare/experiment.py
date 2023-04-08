@@ -100,14 +100,18 @@ if __name__ == "__main__":
     perrank = iterations // size
     data_slice = (0 + rank * perrank,  0 + (rank + 1) * perrank)
 
+    # Generate graphs
+    scm_types = [(i%3)+1 for i in range(len(X))]
+
     # Current slice
     X_test_slice, W_test_slice = X[data_slice[0]:data_slice[1]], W_test[data_slice[0]:data_slice[1]]
+    scm_types_slice = scm_types[data_slice[0]:data_slice[1]]
 
     # Generate the counterfactuals and traces
-    (counterfactuals, Y, traces, costs_e, _), W_updated, failed_users = interactive.predict(X_test_slice, W_test_slice, full_output=True)
+    (counterfactuals, Y, traces, costs_e, _), W_updated, failed_users = interactive.predict(X_test_slice, W_test_slice, full_output=True, random_graph=scm_types_slice)
 
     # Regenerate the true costs, given the found traces
-    costs = interactive.evaluate_trace_costs(X_test_slice, W_test_slice, traces)
+    costs = interactive.evaluate_trace_costs(X_test_slice, W_test_slice, traces, random_graph=scm_types_slice)
 
     # Send the complete results
     complete_trace = [counterfactuals, Y, traces, costs, W_updated, failed_users, data_slice[0], data_slice[1]]
