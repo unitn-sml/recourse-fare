@@ -171,6 +171,30 @@ class InteractiveFARE:
             return self.recourse_model.predict(
                 X, pd.DataFrame.from_records(W_updated), **kwargs
             )
+    
+    def evaluate_trace_costs(self, X, W, traces):
+
+        X_dict = X.to_dict(orient='records')
+        W_dict = W.to_dict(orient='records')
+
+        costs = []
+
+        for idx, t in enumerate(traces):
+
+            # Build the environment
+            env: EnvironmentWeights = import_dyn_class(self.environment_config.get("class_name"))(
+                X_dict[idx].copy(),
+                W_dict[idx].copy(),
+                self.model,
+                **self.environment_config.get("additional_parameters"))
+            
+            # Compute the intervention costs
+            t_cost = self.user.compute_intervention_cost(
+                env, X_dict[idx].copy(), t, custom_weights=W_dict[idx].copy()
+            )
+            costs.append(t_cost)
+        
+        return costs
 
     def _assert_elicitation_state(self, choice_set, question):
 

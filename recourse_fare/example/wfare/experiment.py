@@ -104,7 +104,10 @@ if __name__ == "__main__":
     X_test_slice, W_test_slice = X[data_slice[0]:data_slice[1]], W_test[data_slice[0]:data_slice[1]]
 
     # Generate the counterfactuals and traces
-    (counterfactuals, Y, traces, costs, _), W_updated, failed_users = interactive.predict(X_test_slice, W_test_slice, full_output=True)
+    (counterfactuals, Y, traces, costs_e, _), W_updated, failed_users = interactive.predict(X_test_slice, W_test_slice, full_output=True)
+
+    # Regenerate the true costs, given the found traces
+    costs = interactive.evaluate_trace_costs(X_test_slice, W_test_slice, traces)
 
     # Send the complete results
     complete_trace = [counterfactuals, Y, traces, costs, W_updated, failed_users, data_slice[0], data_slice[1]]
