@@ -32,6 +32,7 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--questions", default=3, type=int, help="How many questions we shoudl ask.")
     parser.add_argument("--test_set_size", default=100, type=int, help="How many users we should pick from the test set for evaluation.")
+    parser.add_argument("--true_graph", default=False, action="store_true", help="Use misspecified random graphs for the estimation.")
     parser.add_argument("--verbose", default=False, action="store_true", help="Make the procedure verbose.")
 
     # Parse the arguments
@@ -74,7 +75,7 @@ if __name__ == "__main__":
     # Create and interactive FARE object and predict the test instances
     interactive = InteractiveFARE(recourse_method, user, mixture, keys_weights,
                                   questions=int(args.questions), mcmc_steps=8,
-                                  verbose=args.verbose)
+                                  verbose=args.verbose, use_true_graph=args.true_graph)
 
     # Build the dataframes with the weights
     W_test = pd.read_csv("recourse_fare/example/wfare/weights_test.csv")
@@ -143,12 +144,12 @@ if __name__ == "__main__":
 
         # Save the validity, cost and elicitation result to disk
         data = pd.DataFrame(list(zip(user_idx, validity, intervention_costs, failed_users_all)), columns=["user_idx","recourse", "cost", "elicitation"])
-        data.to_csv(f"validity_cost_elicitation-{args.questions}.csv", index=None)
+        data.to_csv(f"validity_cost_elicitation-{args.questions}-{args.true_graph}.csv", index=None)
 
         # Save the traces to disk
         data = pd.DataFrame(all_traces, columns=["user_idx", "action", "argument"])
-        data.to_csv(f"traces-{args.questions}.csv", index=None)
+        data.to_csv(f"traces-{args.questions}-{args.true_graph}.csv", index=None)
 
         # Save estimated weights to disk
         weights = pd.concat([x[4] for x in complete_trace])
-        weights.to_csv(f"estimated_weights-{args.questions}.csv", index=None)
+        weights.to_csv(f"estimated_weights-{args.questions}-{args.true_graph}.csv", index=None)

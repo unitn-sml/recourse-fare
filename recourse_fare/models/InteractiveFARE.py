@@ -12,7 +12,9 @@ import pandas as pd
 
 class InteractiveFARE:
 
-    def __init__(self, recourse_model: WFARE, user: User, mixture: MixtureModel, features: list, questions: int=10, choice_set_size: int=2,
+    def __init__(self, recourse_model: WFARE, user: User, mixture: MixtureModel, features: list,
+                 questions: int=10, choice_set_size: int=2,
+                 use_true_graph: bool=True,
                  mcmc_steps=100, n_particles=100, verbose: bool=False) -> None:
         self.questions = questions
         self.choice_set_size = choice_set_size
@@ -21,6 +23,8 @@ class InteractiveFARE:
         self.model = recourse_model.model
 
         self.verbose = verbose
+
+        self.use_true_graph = use_true_graph
 
         self.environment_config = self.recourse_model.environment_config
         self.mcts_config = self.recourse_model.mcts_config
@@ -64,8 +68,10 @@ class InteractiveFARE:
                 X_dict[i].copy(),
                 estimated_weights,
                 self.model,
-                **self.environment_config.get("additional_parameters")
+                **self.environment_config.get("additional_parameters"),
             )
+            if self.use_true_graph:
+                env.structural_weights.set_scm_structure(kwargs.get("random_graph")[i])
             
             # Store the previously asked actions to avoid asking them again.
             asked_actions = []
@@ -168,11 +174,11 @@ class InteractiveFARE:
         # weight aware model.
         if full_output:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), full_output=full_output
+                X, pd.DataFrame.from_records(W_updated), full_output=full_output, **kwargs
             ), pd.DataFrame.from_records(W_updated), failed_user_estimation
         else:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated)
+                X, pd.DataFrame.from_records(W_updated), **kwargs
             )
     
     def evaluate_trace_costs(self, X, W, traces, **kwargs):
