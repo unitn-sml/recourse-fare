@@ -128,7 +128,7 @@ class WFARE(FARE):
     
     def predict(self, X, W, full_output :bool=False,
                 verbose :bool=True, agent_only :bool=False,
-                mcts_only :bool=False, **kwargs):
+                mcts_only :bool=False, use_true_graph: bool=True, **kwargs):
         """Generate counterfactual interventions given FARE.
 
         :param X: the dataset
@@ -158,7 +158,7 @@ class WFARE(FARE):
                 self.model,
                 **self.environment_config.get("additional_parameters"))
             
-            if kwargs.get("random_graph"):
+            if kwargs.get("random_graph") and use_true_graph:
                 env_validation.structural_weights.set_scm_structure(kwargs.get("random_graph")[i])
 
             # If we are using only the agent
