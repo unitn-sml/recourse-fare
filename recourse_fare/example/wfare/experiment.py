@@ -154,12 +154,12 @@ if __name__ == "__main__":
 
         # Save the validity, cost and elicitation result to disk
         data = pd.DataFrame(list(zip(user_idx, validity, intervention_costs, failed_users_all)), columns=["user_idx","recourse", "cost", "elicitation"])
-        data.to_csv(f"validity_cost_elicitation-{args.questions}-{args.true_graph}.csv", index=None)
+        data.to_csv(f"validity_cost_elicitation-{args.questions}-{args.wrong_graph}.csv", index=None)
 
         # Save the traces to disk
         data = pd.DataFrame(all_traces, columns=["user_idx", "action", "argument"])
-        data.to_csv(f"traces-{args.questions}-{args.true_graph}.csv", index=None)
+        data.to_csv(f"traces-{args.questions}-{args.wrong_graph}.csv", index=None)
 
         # Save estimated weights to disk
         weights = pd.concat([x[4] for x in complete_trace])
-        weights.to_csv(f"estimated_weights-{args.questions}-{args.true_graph}.csv", index=None)
+        weights.to_csv(f"estimated_weights-{args.questions}-{args.wrong_graph}.csv", index=None)
