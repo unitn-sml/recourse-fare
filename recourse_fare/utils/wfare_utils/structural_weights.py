@@ -7,17 +7,17 @@ import numpy as np
 
 class StructuralWeights(ABC):
 
-    def __init__(self):
+    def __init__(self, nodes: list=None, edges: list=None):
         self.scm = nx.DiGraph()
-        self._init_structure()
+        self._init_structure(nodes, edges)
 
     @abstractmethod
-    def _init_structure(self) -> None:
+    def _init_structure(self, nodes: list=None, edges: list=None) -> None:
         """
         Initialize the node and edge weights. Moreover, initialize for each
         node its parents.
         """
-        pass 
+        pass
 
     @abstractmethod
     def _feature_mapping(self, features: dict) -> dict:
@@ -53,3 +53,20 @@ class StructuralWeights(ABC):
         # If the clip the cost to be positive. A negative cost does not make sense.
         #assert (new_value-features.get(name))*self.node_weights.get(name) >= 0, f"{new_value}, {features.get(name)}, the cost is negative {name}"
         return max(0, cost + np.abs(new_value - features.get(node)) * weights.get((node, node)))
+
+    def set_scm_structure(self, scm_structure: dict={}):
+        """Set the SCM structure
+
+        :param scm_structure: dictionary containing the nodes and edges.
+        :type scm_structure: dict
+        """
+        self.scm = nx.DiGraph()
+        self._init_structure(
+            scm_structure.get("nodes", None),
+            scm_structure.get("edges", None)
+        )
+    
+    def reset_scm_to_default(self) -> None:
+        """Reset the SCM structure to the default values
+        """
+        self.set_scm_structure({})

@@ -14,7 +14,6 @@ class InteractiveFARE:
 
     def __init__(self, recourse_model: WFARE, user: User, mixture: MixtureModel, features: list,
                  questions: int=10, choice_set_size: int=2,
-                 use_true_graph: bool=True,
                  mcmc_steps=100, n_particles=100, verbose: bool=False) -> None:
         self.questions = questions
         self.choice_set_size = choice_set_size
@@ -23,8 +22,6 @@ class InteractiveFARE:
         self.model = recourse_model.model
 
         self.verbose = verbose
-
-        self.use_true_graph = use_true_graph
 
         self.environment_config = self.recourse_model.environment_config
         self.mcts_config = self.recourse_model.mcts_config
@@ -41,7 +38,7 @@ class InteractiveFARE:
         self.user: User = user
         self.noiseless_user: NoiselessUser = NoiselessUser()
 
-    def predict(self, X, W, full_output=False, **kwargs):
+    def predict(self, X, W, G: dict=None, full_output=False, use_true_graph: bool=True, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -70,8 +67,10 @@ class InteractiveFARE:
                 self.model,
                 **self.environment_config.get("additional_parameters"),
             )
-            if self.use_true_graph:
-                env.structural_weights.set_scm_structure(kwargs.get("random_graph")[i])
+
+            # Use the true graph if it is specified and we want it
+            if use_true_graph and G:
+                env.structural_weights.set_scm_structure(G[i])
             
             # Store the previously asked actions to avoid asking them again.
             asked_actions = []
@@ -111,14 +110,21 @@ class InteractiveFARE:
                  some_questions_asked) = self._assert_elicitation_state(choices, question)
 
                 if can_continue:
+
+                    # Set the correct user graph, if it is specified
+                    # Set the corresponding graph if it exists
+                    if G is not None:
+                        env.structural_weights.set_scm_structure(G[i])
+
                     # Show the choices to the user and let her pick the best one
                     # We supply the user the real weights.
-                    env.structural_weights.set_scm_structure(kwargs.get("random_graph")[i])
                     best_action, best_value, best_intervention, best_previous_state, _ = self._ask_user(
                         env, choices, W_dict[i].copy()
                     )
-                    env.structural_weights.set_scm_structure(-1)
                     assert env.features == current_env_state
+
+                    # Reset the graph to the default configuration
+                    env.structural_weights.reset_scm_to_default()
 
                     # Sample the weights given the current user answers
                     # The sampling is done with the estimated weights
@@ -174,16 +180,14 @@ class InteractiveFARE:
         # weight aware model.
         if full_output:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), full_output=full_output,
-                use_true_graph=self.use_true_graph, **kwargs
+                X, pd.DataFrame.from_records(W_updated), G, full_output=full_output, **kwargs
             ), pd.DataFrame.from_records(W_updated), failed_user_estimation
         else:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated),
-                use_true_graph=self.use_true_graph, **kwargs
+                X, pd.DataFrame.from_records(W_updated), G, **kwargs
             )
     
-    def evaluate_trace_costs(self, X, W, traces, **kwargs):
+    def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, use_true_graph: bool=True, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -200,7 +204,8 @@ class InteractiveFARE:
                 **self.environment_config.get("additional_parameters"))
             
             # Set random type
-            env.structural_weights.set_scm_structure(kwargs.get("random_graph")[idx])
+            if G and use_true_graph:
+                env.structural_weights.set_scm_structure(G[idx])
             
             # Compute the intervention costs
             t_cost = self.user.compute_intervention_cost(

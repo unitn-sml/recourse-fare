@@ -26,13 +26,21 @@ MIXTURE_MEAN_LIST =[
     [13, -25, -14, -10, 35, 32, -45, 43, 29, -24, 47, 16, 8, 22, 10]
 ]
 
+WRONG_GRAPH_EDGES = [
+    ("education", "workclass"),
+    ("hours_per_week", "occupation"),
+    ("workclass", "capital_gain"),
+    ("capital_gain", "capital_loss")
+]
+
 if __name__ == "__main__":
 
     # Add the argument parser
     parser = ArgumentParser()
     parser.add_argument("--questions", default=3, type=int, help="How many questions we shoudl ask.")
     parser.add_argument("--test_set_size", default=100, type=int, help="How many users we should pick from the test set for evaluation.")
-    parser.add_argument("--true_graph", default=False, action="store_true", help="Use misspecified random graphs for the estimation.")
+    parser.add_argument("--mcmc_steps", default=50, type=int, help="How many steps should the MCMC procedure perform.")
+    parser.add_argument("--wrong_graph", default=False, action="store_true", help="Use misspecified random graphs for the estimation phase.")
     parser.add_argument("--verbose", default=False, action="store_true", help="Make the procedure verbose.")
 
     # Parse the arguments
@@ -74,8 +82,8 @@ if __name__ == "__main__":
 
     # Create and interactive FARE object and predict the test instances
     interactive = InteractiveFARE(recourse_method, user, mixture, keys_weights,
-                                  questions=int(args.questions), mcmc_steps=8,
-                                  verbose=args.verbose, use_true_graph=args.true_graph)
+                                  questions=int(args.questions), mcmc_steps=args.mcmc_steps,
+                                  verbose=args.verbose)
 
     # Build the dataframes with the weights
     W_test = pd.read_csv("recourse_fare/example/wfare/weights_test.csv")
@@ -102,17 +110,19 @@ if __name__ == "__main__":
     data_slice = (0 + rank * perrank,  0 + (rank + 1) * perrank)
 
     # Generate graphs
-    scm_types = [(i%3)+1 for i in range(len(X))]
+    G = [{"edges": WRONG_GRAPH_EDGES} for i in range(len(X))]
 
     # Current slice
     X_test_slice, W_test_slice = X[data_slice[0]:data_slice[1]], W_test[data_slice[0]:data_slice[1]]
-    scm_types_slice = scm_types[data_slice[0]:data_slice[1]]
+    G_test_slice = G[data_slice[0]:data_slice[1]]
 
     # Generate the counterfactuals and traces
-    (counterfactuals, Y, traces, costs_e, _), W_updated, failed_users = interactive.predict(X_test_slice, W_test_slice, full_output=True, random_graph=scm_types_slice)
+    (counterfactuals, Y, traces, costs_e, _), W_updated, failed_users = interactive.predict(
+        X_test_slice, W_test_slice, G_test_slice,
+        full_output=True, use_true_graph=not args.wrong_graph)
 
     # Regenerate the true costs, given the found traces
-    costs = interactive.evaluate_trace_costs(X_test_slice, W_test_slice, traces, random_graph=scm_types_slice)
+    costs = interactive.evaluate_trace_costs(traces, X_test_slice, W_test_slice, G_test_slice, use_true_graph=True)
 
     # Send the complete results
     complete_trace = [counterfactuals, Y, traces, costs, W_updated, failed_users, data_slice[0], data_slice[1]]
