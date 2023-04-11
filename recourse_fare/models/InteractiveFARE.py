@@ -180,11 +180,13 @@ class InteractiveFARE:
         # weight aware model.
         if full_output:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), G, full_output=full_output, **kwargs
+                X, pd.DataFrame.from_records(W_updated), G if use_true_graph else None,
+                full_output=full_output, **kwargs
             ), pd.DataFrame.from_records(W_updated), failed_user_estimation
         else:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), G, **kwargs
+                X, pd.DataFrame.from_records(W_updated), G if use_true_graph else None,
+                **kwargs
             )
     
     def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, use_true_graph: bool=True, **kwargs):
