@@ -85,19 +85,21 @@ class NoiselessUser(User):
 
 class LogisticNoiseUser(User):
 
-    def __init__(self, graph: StructuralWeights):
-        self.temperature = 0.9
-        super().__init__(graph)
+    def __init__(self, temperature: float=0.9):
+        self.temperature = temperature
+        super().__init__()
 
-    def compute_probabilities(self, choice_set, estimated=False):
+    def compute_probabilities(self, env, choice_set, custom_weights):
 
-        tmp_cost_val = np.array([-self.temperature * self.features.compute_intervention_cost(intervention,
-                                                                   custom_env=current_env_state.copy(),
-                                                                   estimated=estimated) for a, value, intervention, current_env_state, _ in
-                       choice_set])
+        intervention_cost_values = []
+        for _, _, intervention, current_env, _ in choice_set:
+            int_cost_tmp = self.compute_intervention_cost(env, current_env, intervention, custom_weights)
+            intervention_cost_values.append(-self.temperature*int_cost_tmp)
+        
+        intervention_cost_values = np.array(intervention_cost_values)
 
-        tmp_cost_val = tmp_cost_val-tmp_cost_val.max()
-        cost_values = [np.exp(c) for c in tmp_cost_val]
+        intervention_cost_values -= intervention_cost_values.max()
+        cost_values = [np.exp(c) for c in intervention_cost_values]
         total_cost = np.sum(cost_values)
 
         probabilities = [(c / total_cost) for c in cost_values]
@@ -107,7 +109,7 @@ class LogisticNoiseUser(User):
 
         return probabilities
 
-    def compute_best_action(self, choice_set: list, estimated: bool=False) -> list:
+    def compute_best_action(self, env: EnvironmentWeights, choice_set: list, custom_weights: dict=None) -> list:
         """
         Return the best action for this user, given a choice set
         :param choice_set: choice set with the candidate interventions and action/value
@@ -118,7 +120,7 @@ class LogisticNoiseUser(User):
         if len(choice_set) == 1:
             return choice_set[0]
 
-        probabilities = self.compute_probabilities(choice_set, estimated)
+        probabilities = self.compute_probabilities(env, choice_set, custom_weights)
 
         if len(probabilities) > 1:
             choosen_best_action = np.random.choice(len(choice_set), 1, p=probabilities)[0]
@@ -127,7 +129,7 @@ class LogisticNoiseUser(User):
 
         return choice_set[choosen_best_action]
 
-    def compute_choice_probability(self, action, choice_set: list, estimated: bool=False) -> float:
+    def compute_choice_probability(self, action, current_env: EnvironmentWeights, choice_set: list, custom_weights: dict=None) -> float:
         """
         Compute the probability of choosing a given action in a choice set
         :param action: action/value pair we want to get the probability from
@@ -143,6 +145,6 @@ class LogisticNoiseUser(User):
                 break
         assert idx != -1
 
-        probabilities = self.compute_probabilities(choice_set, estimated)
+        probabilities = self.compute_probabilities(current_env, choice_set, custom_weights)
 
         return probabilities[idx]

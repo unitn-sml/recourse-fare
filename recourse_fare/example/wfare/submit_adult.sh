@@ -2,6 +2,7 @@
 set -euo pipefail
 
 CONFIGS=(
+"0"
 "1"
 "2"
 "3"

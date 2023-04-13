@@ -8,7 +8,7 @@ from recourse_fare.example.wfare.adult_scm import AdultSCM
 from recourse_fare.models.InteractiveFARE import InteractiveFARE
 
 from recourse_fare.example.wfare.adult_scm import AdultSCM
-from recourse_fare.user.user import NoiselessUser
+from recourse_fare.user.user import NoiselessUser, LogisticNoiseUser
 from recourse_fare.utils.Mixture import MixtureModel
 
 import numpy as np
@@ -38,9 +38,10 @@ if __name__ == "__main__":
     # Add the argument parser
     parser = ArgumentParser()
     parser.add_argument("--questions", default=3, type=int, help="How many questions we shoudl ask.")
-    parser.add_argument("--test_set_size", default=100, type=int, help="How many users we should pick from the test set for evaluation.")
-    parser.add_argument("--mcmc_steps", default=50, type=int, help="How many steps should the MCMC procedure perform.")
-    parser.add_argument("--wrong_graph", default=False, action="store_true", help="Use misspecified random graphs for the estimation phase.")
+    parser.add_argument("--test-set-size", default=100, type=int, help="How many users we should pick from the test set for evaluation.")
+    parser.add_argument("--mcmc-steps", default=50, type=int, help="How many steps should the MCMC procedure perform.")
+    parser.add_argument("--logistic-user", default=False, action="store_true", help="Use a logistic user rather than a noiseless one.")
+    parser.add_argument("--wrong-graph", default=False, action="store_true", help="Use misspecified random graphs for the estimation phase.")
     parser.add_argument("--verbose", default=False, action="store_true", help="Make the procedure verbose.")
 
     # Parse the arguments
@@ -68,7 +69,10 @@ if __name__ == "__main__":
     recourse_method = pickle.load(open("recourse_fare/example/wfare/recourse.pth", "rb"))
 
     # Create the user model required
-    user = NoiselessUser()
+    if args.logistic_user:
+        user = LogisticNoiseUser()
+    else:
+        user = NoiselessUser()
 
     # Get edges and nodes 
     tmp_scm = AdultSCM(None)
@@ -154,12 +158,12 @@ if __name__ == "__main__":
 
         # Save the validity, cost and elicitation result to disk
         data = pd.DataFrame(list(zip(user_idx, validity, intervention_costs, failed_users_all)), columns=["user_idx","recourse", "cost", "elicitation"])
-        data.to_csv(f"validity_cost_elicitation-{args.questions}-{args.wrong_graph}.csv", index=None)
+        data.to_csv(f"validity_cost_elicitation-{args.questions}-{args.wrong_graph}-{args.logistic_user}.csv", index=None)
 
         # Save the traces to disk
         data = pd.DataFrame(all_traces, columns=["user_idx", "action", "argument"])
-        data.to_csv(f"traces-{args.questions}-{args.wrong_graph}.csv", index=None)
+        data.to_csv(f"traces-{args.questions}-{args.wrong_graph}-{args.logistic_user}.csv", index=None)
 
         # Save estimated weights to disk
         weights = pd.concat([x[4] for x in complete_trace])
-        weights.to_csv(f"estimated_weights-{args.questions}-{args.wrong_graph}.csv", index=None)
+        weights.to_csv(f"estimated_weights-{args.questions}-{args.wrong_graph}-{args.logistic_user}.csv", index=None)

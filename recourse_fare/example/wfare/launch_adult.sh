@@ -18,8 +18,8 @@ git checkout feature/add-w-fare
 
 module load openmpi-3.0.0
 
-conda activate intcoun
+conda activate rl_mcts
 
 export PYTHONPATH=./
 
-mpirun python3 -m run_interactive recourse_fare/example/wfare/experiment.py --questions "${COUNTER}"
+mpirun python3 recourse_fare/example/wfare/experiment.py --questions "${COUNTER}"
