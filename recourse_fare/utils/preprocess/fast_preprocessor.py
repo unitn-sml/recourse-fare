@@ -6,19 +6,25 @@ import numpy as np
 
 class FastPreprocessor:
 
-    def __init__(self, numerical_encoding="minmax", categorical_encoding="ordinal") -> None:        
+    def __init__(self, exclude: list=[]) -> None: 
+        """Class constructor.
+
+        :param exclude: columns name we want to exclude from preprocessing, defaults to []
+        :type exclude: list, optional
+        """
+
         self.constants = {}
+        self.inverse_constants = {}
         self.feature_names_ordering = None
 
         self.numerical_cols = set()
         self.categorical_cols = set()
 
-        self.num_encoding = numerical_encoding
-        self.cat_encoding = categorical_encoding
+        self.exclude=exclude
 
     def fit(self, data: pd.DataFrame):
 
-        self.feature_names_ordering = list(data.columns)
+        self.feature_names_ordering = list(set(data.columns)-set(self.exclude))
 
         for c in self.feature_names_ordering:
             if is_numeric_dtype(data[c]):
@@ -29,6 +35,7 @@ class FastPreprocessor:
             elif is_string_dtype(data[c]):
                  self.categorical_cols.add(c)
                  self.constants[c] = { v:k for k,v, in enumerate(data[c].unique())}
+                 self.inverse_constants[c] = { k:v for k,v, in enumerate(data[c].unique())}
             else:
                 print(f"Skipping {c}. It is not string nor numeric.")
     
@@ -42,6 +49,8 @@ class FastPreprocessor:
             if c in self.numerical_cols:
                 min_val, max_val = self.constants.get(c)
                 transformed[c] = 1+(transformed[c]-min_val)/(max_val-min_val)
+                transformed[c] = transformed[c] if transformed[c] >= 1 else 1
+                transformed[c] = transformed[c] if transformed[c] <= 2 else 2
             elif c in self.categorical_cols:
                 transformed[c] = 1+self.constants[c].get(transformed[c], 0)
         
@@ -63,6 +72,34 @@ class FastPreprocessor:
                 transformed[c] = transformed[c].apply(
                     lambda x: 1+self.constants[c].get(x, 0)
                 )
+        
+        if type == "values":
+            return transformed.values
+        else:
+            return transformed
+    
+    def inverse_transform(self, data: pd.DataFrame, type="values") -> pd.DataFrame:
+        transformed = data.copy()
+
+        def return_correct_key(k, keys):
+            min_val, max_val = max(keys), min(keys)
+            if k < min_val:
+                return 1
+            elif k > max_val:
+                return max_val
+            else:
+                return k
+
+        for c in self.feature_names_ordering:
+            if c in self.inverse_constants:
+                transformed[c] = transformed[c].apply(
+                    lambda x: self.inverse_constants[c].get(return_correct_key(int(x)-1, list(self.inverse_constants[c].keys())))
+                )
+            elif c in self.constants:
+                min_val, max_val = self.constants.get(c)
+                transformed[c] = (transformed[c]-1)*(max_val-min_val)+min_val
+                transformed[c] = transformed[c].apply(lambda x: min_val if x < min_val else x)
+                transformed[c] = transformed[c].apply(lambda x: max_val if x > max_val else x)
         
         if type == "values":
             return transformed.values
