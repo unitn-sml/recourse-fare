@@ -131,12 +131,11 @@ class InteractiveFARE:
                     try:
                         splr, _ = self.sampler.sample([((best_action, best_value, best_intervention.copy()), choices)], env, self.noiseless_user)
 
-                        # Regenerate particles if the current ones are zero
+                        # If we did not find enough particles, then we abort
+                        # and we ask a new question to the user.
                         if len(self.sampler.current_particles) == 0:
-                            self.sampler.sample([], self.noiseless_user)
-                            if len(self.sampler.current_particles) == 0:
-                                failed_user = True
-                                break
+                            failed_user = True
+                            break
 
                     except Exception as e:
                         # If we fail sampling, then we skip this user and we go to the next
@@ -157,7 +156,7 @@ class InteractiveFARE:
                     # Get the new weights and update our estimate
                     # We can do it since when we compute the new weights, is basically the mean over
                     # all the particles
-                    estimated_weights = self.sampler.get_mean_majority_particles()
+                    estimated_weights = self.sampler.get_mean_high_likelihood_particles()
 
                     # Apply the action and redo the cycle
                     env.has_been_reset = True
@@ -266,7 +265,7 @@ class InteractiveFARE:
         # Potential action we can ask to the user
         potential_set = []
 
-        for program, argument, program_index, argument_index in tqdm(action_choices, disable=not self.verbose):
+        for program, argument, program_index, argument_index in tqdm(action_choices[:20], disable=not self.verbose):
 
             # Avoid asking always the same question at the first iteration.
             if (program, argument, current_environment_state) in questions_to_avoid:

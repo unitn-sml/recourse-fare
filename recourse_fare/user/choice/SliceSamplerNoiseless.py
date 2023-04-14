@@ -101,6 +101,18 @@ class SliceSamplerNoiseless(SliceSampler):
     def get_mean_current_particles(self):
         particle_mean = np.mean(self.current_particles, axis=0).tolist()
         return {k:v for k,v in zip(self.nodes, particle_mean)}
+    
+    def get_mean_high_likelihood_particles(self):
+
+        particles_likelihood = list(zip(
+            self.current_particles, self.particles_likelihood
+        ))
+        particles_likelihood = sorted(particles_likelihood, key=lambda x: x[1], reverse=True)
+        particles_likelihood = particles_likelihood[0:25]
+        particles_likelihood = [x[0] for x in particles_likelihood]
+
+        particle_mean = np.mean(particles_likelihood, axis=0).tolist()
+        return {k:v for k,v in zip(self.nodes, particle_mean)} 
 
     def sample(self, constraint, env, user, keep=False):
 
@@ -123,29 +135,24 @@ class SliceSamplerNoiseless(SliceSampler):
         else:
             self.current_particles = []
 
-        redo = 5
-        while(redo > 0):
-            
-            if len(self.current_particles) < self.nparticles:
-                # Each redo, we increase the number of particles we sample
-                w_current = self.mixture.sample(20000*(5-redo+1))
-                w_current = list(filter(
-                    lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
-                    w_current
-                ))
-                self.current_particles += w_current
-            else:
-                w_current = self.current_particles
-            
-            if self.verbose:
-                print("\nFound particles: ", len(self.current_particles))
-            
-            if len(self.current_particles) < self.nparticles:
-                redo -= 1
-            else:
-                np.random.shuffle(self.current_particles)
-                self.current_particles = self.current_particles[0:self.nparticles]
-                break
+        if len(self.current_particles) < self.nparticles:
+            w_current = self.mixture.sample(20000)
+            w_current = list(filter(
+                lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
+                w_current
+            ))
+            self.current_particles += w_current
+        else:
+            w_current = self.current_particles
+        
+        if self.verbose:
+            print("\nFound particles: ", len(self.current_particles))
+        
+        if len(self.current_particles) < self.nparticles:
+            return None, None
+        else:
+            np.random.shuffle(self.current_particles)
+            self.current_particles = self.current_particles[0:self.nparticles]
         
         self.start = self.current_particles
 
