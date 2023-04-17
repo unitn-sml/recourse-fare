@@ -57,8 +57,11 @@ class InteractiveFARE:
             no_candidate_intervention_found = False
             some_questions_asked = False
 
+            # Compute the expected value of the mixture
+            expected_value_mixture = np.mean(self.mixture.sample(100), axis=0)
+
             # Weights we are going to estimate
-            estimated_weights = {k:v for k,v in zip(W_dict[i].keys(), np.abs(np.random.normal(size=len(W_dict[i]))))}
+            estimated_weights = {k:v for k,v in zip(W_dict[i].keys(), expected_value_mixture)}
             
             # Build the environment
             env: EnvironmentWeights = import_dyn_class(self.environment_config.get("class_name"))(
