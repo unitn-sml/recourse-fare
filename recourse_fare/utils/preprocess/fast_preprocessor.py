@@ -1,8 +1,58 @@
 from pandas.api.types import is_string_dtype
 from pandas.api.types import is_numeric_dtype
 
+from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
+
 import pandas as pd
 import numpy as np
+
+class StandardPreprocessor():
+
+    def __init__(self,  exclude: list=[]) -> None:
+        self.exclude = exclude
+        self.feature_names_ordering = None
+        self.numeric_columns = []
+        self.categorical_columns = []
+        self.onehot = OneHotEncoder(handle_unknown="ignore")
+        self.scaler = MinMaxScaler()
+    
+    def fit(self, data: pd.DataFrame):
+
+        self.feature_names_ordering = list(set(data.columns)-set(self.exclude))
+
+        # Get categorical and numerical columns
+        for c in self.feature_names_ordering:
+            if is_numeric_dtype(data[c]):
+                self.numeric_columns.append(c)
+            elif is_string_dtype(data[c]):
+                 self.categorical_columns.append(c)
+            else:
+                print(f"Skipping {c}. It is not string nor numeric.")
+        
+        self.onehot.fit(data[self.categorical_columns])
+        self.scaler.fit(data[self.numeric_columns])
+
+        self.feature_names_ordering = self.numeric_columns.copy()
+        self.feature_names_ordering += self.onehot.get_feature_names_out(input_features=self.categorical_columns).tolist()
+
+    def transform(self, data: pd.DataFrame, type: str="values"):
+
+        transformed = data.copy()
+
+        cat_ohe = self.onehot.transform(transformed[self.categorical_columns]).toarray()
+        transformed[self.numeric_columns] = self.scaler.transform(transformed[self.numeric_columns])
+
+        ohe_df = pd.DataFrame(cat_ohe, columns=self.onehot.get_feature_names_out(input_features=self.categorical_columns))
+        transformed = pd.concat([transformed[self.numeric_columns], ohe_df], axis=1)
+        
+        if type == "values":
+            return transformed.values
+        else:
+            return transformed
+    
+    def transform_dict(self, data: dict, type="values") -> dict:
+        transformed = pd.DataFrame.from_records([data.copy()])
+        return self.transform(transformed, type)
 
 class FastPreprocessor:
 

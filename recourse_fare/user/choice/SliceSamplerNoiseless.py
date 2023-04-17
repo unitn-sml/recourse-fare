@@ -2,6 +2,8 @@ import zeus
 import numpy as np
 import copy
 
+from tqdm import tqdm
+
 from .SliceSampler import SliceSampler
 from ...utils.functions import plot_sampler
 
@@ -128,7 +130,7 @@ class SliceSamplerNoiseless(SliceSampler):
             if len(self.current_particles) > 0:
                 self.current_particles = list(filter(
                         lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
-                        self.current_particles
+                        tqdm(self.current_particles) if self.verbose else self.current_particles
                     ))
                 if self.verbose:
                     print(f"\nKeeping {len(self.current_particles)} particles...")
@@ -139,7 +141,7 @@ class SliceSamplerNoiseless(SliceSampler):
             w_current = self.mixture.sample(20000)
             w_current = list(filter(
                 lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
-                w_current
+                tqdm(w_current) if self.verbose else w_current
             ))
             self.current_particles += w_current
         else:

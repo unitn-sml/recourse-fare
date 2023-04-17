@@ -265,7 +265,7 @@ class InteractiveFARE:
         # Potential action we can ask to the user
         potential_set = []
 
-        for program, argument, program_index, argument_index in tqdm(action_choices[:20], disable=not self.verbose):
+        for program, argument, program_index, argument_index in tqdm(action_choices, disable=not self.verbose):
 
             # Avoid asking always the same question at the first iteration.
             if (program, argument, current_environment_state) in questions_to_avoid:
