@@ -38,7 +38,7 @@ class InteractiveFARE:
         self.user: User = user
         self.noiseless_user: NoiselessUser = NoiselessUser()
 
-    def predict(self, X, W, G: dict=None, full_output=False, use_true_graph: bool=True, **kwargs):
+    def predict(self, X, W, G: dict=None, full_output=False, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -70,10 +70,6 @@ class InteractiveFARE:
                 self.model,
                 **self.environment_config.get("additional_parameters"),
             )
-
-            # Use the true graph if it is specified and we want it
-            if use_true_graph and G:
-                env.structural_weights.set_scm_structure(G[i])
             
             # Store the previously asked actions to avoid asking them again.
             asked_actions = []
@@ -182,16 +178,16 @@ class InteractiveFARE:
         # weight aware model.
         if full_output:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), G if use_true_graph else None,
+                X, pd.DataFrame.from_records(W_updated), None,
                 full_output=full_output, **kwargs
             ), pd.DataFrame.from_records(W_updated), failed_user_estimation
         else:
             return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), G if use_true_graph else None,
+                X, pd.DataFrame.from_records(W_updated), None,
                 **kwargs
             )
     
-    def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, use_true_graph: bool=True, **kwargs):
+    def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -208,7 +204,7 @@ class InteractiveFARE:
                 **self.environment_config.get("additional_parameters"))
             
             # Set random type
-            if G and use_true_graph:
+            if G:
                 env.structural_weights.set_scm_structure(G[idx])
             
             # Compute the intervention costs
