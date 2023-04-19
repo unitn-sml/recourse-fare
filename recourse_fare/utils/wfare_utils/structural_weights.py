@@ -9,8 +9,8 @@ class StructuralWeights(ABC):
 
     def __init__(self, nodes: list=None, edges: list=None):
         self.scm = nx.DiGraph()
-        self.default_nodes = nodes.copy() if nodes else None
-        self.default_edges = edges.copy() if edges else None
+        self.default_nodes = nodes.copy() if nodes is not None else None
+        self.default_edges = edges.copy() if edges is not None else None
         self._init_structure(nodes, edges)
         assert len(list(nx.simple_cycles(self.scm))) == 0
 
