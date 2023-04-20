@@ -106,6 +106,14 @@ class SliceSamplerNoiseless(SliceSampler):
     
     def get_mean_high_likelihood_particles(self):
 
+        if len(self.current_particles) == 0:
+            print("Empty current particles when getting the mean.")
+            return None
+
+        if len(self.particles_likelihood) == 0:
+            print("Empty precomputed likelihood when getting the mean.")
+            return None
+
         particles_likelihood = list(zip(
             self.current_particles, self.particles_likelihood
         ))

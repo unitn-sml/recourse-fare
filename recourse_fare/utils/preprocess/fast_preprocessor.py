@@ -16,6 +16,9 @@ class StandardPreprocessor():
         self.onehot = OneHotEncoder(handle_unknown="ignore")
         self.scaler = MinMaxScaler()
     
+    def get_feature_names(self, feature_names: list):
+        return self.onehot.get_feature_names_out(input_features=feature_names).tolist()
+    
     def fit(self, data: pd.DataFrame):
 
         self.feature_names_ordering = list(set(data.columns)-set(self.exclude))
@@ -38,6 +41,7 @@ class StandardPreprocessor():
     def transform(self, data: pd.DataFrame, type: str="values"):
 
         transformed = data.copy()
+        transformed.reset_index(drop=True, inplace=True)
 
         cat_ohe = self.onehot.transform(transformed[self.categorical_columns]).toarray()
         transformed[self.numeric_columns] = self.scaler.transform(transformed[self.numeric_columns])
@@ -45,6 +49,23 @@ class StandardPreprocessor():
         ohe_df = pd.DataFrame(cat_ohe, columns=self.onehot.get_feature_names_out(input_features=self.categorical_columns))
         transformed = pd.concat([transformed[self.numeric_columns], ohe_df], axis=1)
         
+        if type == "values":
+            return transformed.values
+        else:
+            return transformed[self.feature_names_ordering]
+    
+    def inverse_transform(self, data: pd.DataFrame, type: str="values"):
+
+        transformed = data.copy()
+        transformed.reset_index(drop=True, inplace=True)
+
+        cat_trans_name = self.onehot.get_feature_names_out(input_features=self.categorical_columns)
+
+        cat_ohe = self.onehot.inverse_transform(transformed[cat_trans_name])
+        ohe_df = pd.DataFrame(cat_ohe, columns=self.categorical_columns)
+        transformed[self.numeric_columns] = self.scaler.inverse_transform(transformed[self.numeric_columns])
+        transformed = pd.concat([transformed[self.numeric_columns], ohe_df], axis=1)
+
         if type == "values":
             return transformed.values
         else:

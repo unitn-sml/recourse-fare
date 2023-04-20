@@ -155,7 +155,9 @@ class InteractiveFARE:
                     # Get the new weights and update our estimate
                     # We can do it since when we compute the new weights, is basically the mean over
                     # all the particles
-                    estimated_weights = self.sampler.get_mean_high_likelihood_particles()
+                    new_estimated_weights = self.sampler.get_mean_high_likelihood_particles()
+                    estimated_weights = new_estimated_weights if new_estimated_weights else estimated_weights
+                    failed_user = True if new_estimated_weights is None else failed_user
 
                     # Apply the action and redo the cycle
                     env.has_been_reset = True
@@ -186,7 +188,7 @@ class InteractiveFARE:
                 X, pd.DataFrame.from_records(W_updated), None,
                 **kwargs
             )
-    
+
     def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, **kwargs):
 
         X_dict = X.to_dict(orient='records')
