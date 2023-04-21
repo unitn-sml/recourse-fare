@@ -20,7 +20,8 @@ class User(ABC):
     def compute_choice_probability(self, action, value, current_env: EnvironmentWeights, choice_set: list, custom_weights: dict=None) -> float:
         pass
 
-    def compute_intervention_cost(self, env: EnvironmentWeights, env_state: dict, intervention: list, custom_weights: dict=None) -> float:
+    def compute_intervention_cost(self, env: EnvironmentWeights, env_state: dict, intervention: list,
+                                  custom_weights: dict=None, bin_argument: bool=True) -> float:
         """
         Compute the cost of an intervention. It does not modify the environment, however, this
         function is unsafe to be used in a multi-threaded context. Unless the object in replicated
@@ -28,6 +29,7 @@ class User(ABC):
         :param intervention: ordered list of action/value/type tuples
         :param custom_env: feature updates which are applied before computing the cost (not persistent)
         :param estimated: if True, we compute the cost using the estimated graph
+        :param bin_argument: if True, convert the argument to a binned value.
         :return: intervention cost
         """
 
@@ -40,8 +42,11 @@ class User(ABC):
         intervention_cost = 0
         for action, value in intervention:
             prog_idx = env.prog_to_idx.get(action)
-            value_idx = env.complete_arguments.index(value)
-            intervention_cost += env.get_cost(prog_idx, value_idx)
+            if bin_argument:
+                value_idx = env.complete_arguments.index(value)
+                intervention_cost += env.get_cost(prog_idx, value_idx)
+            else:
+                intervention_cost += env.get_cost_raw(prog_idx, value)
             env.act(action, value)
 
         env.features = prev_state

@@ -211,7 +211,7 @@ class InteractiveFARE:
             
             # Compute the intervention costs
             t_cost = self.user.compute_intervention_cost(
-                env, X_dict[idx].copy(), t, custom_weights=W_dict[idx].copy()
+                env, X_dict[idx].copy(), t, custom_weights=W_dict[idx].copy(), **kwargs
             )
             costs.append(t_cost)
         
