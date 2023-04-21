@@ -9,11 +9,15 @@ import numpy as np
 class StandardPreprocessor():
 
     def __init__(self,  exclude: list=[]) -> None:
+
         self.exclude = exclude
         self.feature_names_ordering = None
-        self.numeric_columns = []
-        self.categorical_columns = []
-        self.onehot = OneHotEncoder(handle_unknown="ignore")
+        self.original_feature_names_ordering = None
+        
+        self.continuous = []
+        self.categorical = []
+
+        self.onehot = OneHotEncoder(handle_unknown="ignore", sparse=False)
         self.scaler = MinMaxScaler()
     
     def get_feature_names(self, feature_names: list):
@@ -22,33 +26,34 @@ class StandardPreprocessor():
     def fit(self, data: pd.DataFrame):
 
         self.feature_names_ordering = list(set(data.columns)-set(self.exclude))
+        self.original_feature_names_ordering = self.feature_names_ordering.copy()
 
         # Get categorical and numerical columns
         for c in self.feature_names_ordering:
             if is_numeric_dtype(data[c]):
-                self.numeric_columns.append(c)
+                self.continuous.append(c)
             elif is_string_dtype(data[c]):
-                 self.categorical_columns.append(c)
+                 self.categorical.append(c)
             else:
                 print(f"Skipping {c}. It is not string nor numeric.")
         
-        self.onehot.fit(data[self.categorical_columns])
-        self.scaler.fit(data[self.numeric_columns])
+        self.onehot.fit(data[self.categorical].values)
+        self.scaler.fit(data[self.continuous].values)
 
-        self.feature_names_ordering = self.numeric_columns.copy()
-        self.feature_names_ordering += self.onehot.get_feature_names_out(input_features=self.categorical_columns).tolist()
+        self.feature_names_ordering = self.continuous.copy()
+        self.feature_names_ordering += self.onehot.get_feature_names_out(input_features=self.categorical).tolist()
 
     def transform(self, data: pd.DataFrame, type: str="values"):
 
         transformed = data.copy()
         transformed.reset_index(drop=True, inplace=True)
 
-        cat_ohe = self.onehot.transform(transformed[self.categorical_columns]).toarray()
-        transformed[self.numeric_columns] = self.scaler.transform(transformed[self.numeric_columns])
+        cat_ohe = self.onehot.transform(transformed[self.categorical].values)
+        transformed[self.continuous] = self.scaler.transform(transformed[self.continuous].values)
 
-        ohe_df = pd.DataFrame(cat_ohe, columns=self.onehot.get_feature_names_out(input_features=self.categorical_columns))
-        transformed = pd.concat([transformed[self.numeric_columns], ohe_df], axis=1)
-        
+        ohe_df = pd.DataFrame(cat_ohe, columns=self.onehot.get_feature_names_out(input_features=self.categorical))
+        transformed = pd.concat([transformed[self.continuous], ohe_df], axis=1)
+
         if type == "values":
             return transformed.values
         else:
@@ -59,12 +64,12 @@ class StandardPreprocessor():
         transformed = data.copy()
         transformed.reset_index(drop=True, inplace=True)
 
-        cat_trans_name = self.onehot.get_feature_names_out(input_features=self.categorical_columns)
+        cat_trans_name = self.onehot.get_feature_names_out(input_features=self.categorical)
 
-        cat_ohe = self.onehot.inverse_transform(transformed[cat_trans_name])
-        ohe_df = pd.DataFrame(cat_ohe, columns=self.categorical_columns)
-        transformed[self.numeric_columns] = self.scaler.inverse_transform(transformed[self.numeric_columns])
-        transformed = pd.concat([transformed[self.numeric_columns], ohe_df], axis=1)
+        cat_ohe = self.onehot.inverse_transform(transformed[cat_trans_name].values)
+        ohe_df = pd.DataFrame(cat_ohe, columns=self.categorical)
+        transformed[self.continuous] = self.scaler.inverse_transform(transformed[self.continuous].values)
+        transformed = pd.concat([transformed[self.continuous], ohe_df], axis=1)
 
         if type == "values":
             return transformed.values
@@ -72,8 +77,25 @@ class StandardPreprocessor():
             return transformed
     
     def transform_dict(self, data: dict, type="values") -> dict:
-        transformed = pd.DataFrame.from_records([data.copy()])
-        return self.transform(transformed, type)
+
+        categorical = np.array([data.get(k) for k in self.categorical])
+        continuous = np.array([data.get(k) for k in self.continuous])
+
+        cat_ohe = self.onehot.transform([categorical])[0]
+        cont = self.scaler.transform([continuous])[0]
+
+        transformed = {
+            k:v for k,v in zip(self.onehot.get_feature_names_out(input_features=self.categorical), cat_ohe)
+        }
+        for k,v in zip(self.continuous, cont):
+            transformed[k] = v
+        
+        if type == "values":
+            return np.array([
+               transformed[c] for c in self.feature_names_ordering
+            ])
+        else:
+            return transformed
 
 class FastPreprocessor:
 
