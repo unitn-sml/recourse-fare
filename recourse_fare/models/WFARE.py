@@ -167,11 +167,11 @@ class WFARE(FARE):
                 counterfactual, reward, trace, cost = self._predict_agent(env_validation)
                 counterfactuals.append(counterfactual)
                 Y.append(reward)
-                trace.append(traces)
+                traces.append(trace)
                 costs.append(cost)
                 root_nodes.append(None)
                 continue
-            
+
             mcts_validation = MCTSWeights(
                 env_validation, self.policy,
                 **self.mcts_config
@@ -187,7 +187,7 @@ class WFARE(FARE):
             trace, root_node, _ = mcts_validation.sample_intervention()
             task_reward = trace.task_reward
 
-            cost, _ = get_cost_from_tree(env_validation, root_node)
+            cost, _ = get_cost_from_tree(root_node)
             costs.append(cost)
             traces.append(get_trace(env_validation, root_node))
             root_nodes.append(root_node)

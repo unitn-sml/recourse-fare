@@ -220,7 +220,7 @@ if __name__ == "__main__":
                 trace, root_node, _ = mcts_validation.sample_intervention()
                 task_reward = trace.task_reward
 
-                cost, _ = get_cost_from_tree(env_validation, root_node)
+                cost, _ = get_cost_from_tree(root_node)
                 costs.append(cost)
                 lengths.append(len(trace.previous_actions[1:]))
 

@@ -43,7 +43,7 @@ class User(ABC):
         for action, value in intervention:
             prog_idx = env.prog_to_idx.get(action)
             if bin_argument:
-                value_idx = env.complete_arguments.index(value)
+                value_idx = env.inverse_complete_arguments.get(value)
                 intervention_cost += env.get_cost(prog_idx, value_idx)
             else:
                 intervention_cost += env.get_cost_raw(prog_idx, value)

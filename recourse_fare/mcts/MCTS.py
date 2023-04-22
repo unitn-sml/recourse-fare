@@ -131,7 +131,7 @@ class MCTS:
                         "h_lstm_args": new_h_args.clone(),
                         "c_lstm_args": new_c_args.clone(),
                         "selected": False,
-                        "args": self.env.complete_arguments[arg_index],
+                        "args": self.env.complete_arguments.get(arg_index),
                         "args_index": arg_index,
                         "depth": depth + 1,
                         "program_name": self.env.get_program_from_index(prog_index)

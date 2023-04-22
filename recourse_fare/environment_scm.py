@@ -74,7 +74,7 @@ class EnvironmentSCM(Environment):
 
         # Get action name and arguments
         program = self.idx_to_prog.get(program_index)
-        argument = self.complete_arguments[args_index]
+        argument = self.complete_arguments.get(args_index)
 
         # Compute the cost only if the action is different than the cost
         if program == "STOP":

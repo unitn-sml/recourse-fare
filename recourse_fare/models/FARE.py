@@ -137,7 +137,7 @@ class FARE:
             arguments_mask = env.get_mask_over_args(program_index)
             arguments = arguments * torch.FloatTensor(arguments_mask)
             arguments_index = torch.argmax(arguments).item()
-            arguments_list = env.complete_arguments[arguments_index]
+            arguments_list = env.complete_arguments.get(arguments_index)
 
             if not env.can_be_called(program_index, arguments_index):
                 wrong_program = True
@@ -226,7 +226,7 @@ class FARE:
             trace, root_node, _ = mcts_validation.sample_intervention()
             task_reward = trace.task_reward
 
-            cost, _ = get_cost_from_tree(env_validation, root_node)
+            cost, _ = get_cost_from_tree(root_node)
             costs.append(cost)
             traces.append(get_trace(env_validation, root_node))
             root_nodes.append(root_node)

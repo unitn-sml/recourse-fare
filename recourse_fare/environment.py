@@ -36,6 +36,8 @@ class Environment(ABC):
 
         self.arguments = arguments
         self.complete_arguments = sum([v for k, v in self.arguments.items()], [])
+        self.complete_arguments = {idx: v for idx, v in enumerate(self.complete_arguments)}
+        self.inverse_complete_arguments = {v: idx for idx, v in self.complete_arguments.items()}
 
         if custom_tensorboard_metrics is None:
             custom_tensorboard_metrics = {}
@@ -152,7 +154,7 @@ class Environment(ABC):
 
     def can_be_called(self, program_index, args_index):
         program = self.get_program_from_index(program_index)
-        args = self.complete_arguments[args_index]
+        args = self.complete_arguments.get(args_index)
 
         mask_over_args = self.get_mask_over_args(program_index)
         if mask_over_args[args_index] == 0:
@@ -166,7 +168,7 @@ class Environment(ABC):
             return 0
 
         program = self.get_program_from_index(program_index)
-        args = self.complete_arguments[args_index]
+        args = self.complete_arguments.get(args_index)
 
         return self.prog_to_cost[program](args)
 
@@ -203,8 +205,9 @@ class Environment(ABC):
             if self.programs_library.get(precondition).get("level") <= 0 and precondition != "STOP":
                 function_args = self.arguments.get(self.programs_library.get(precondition).get("args"))
                 for arg in function_args:
-                    prog_idx = self.prog_to_idx.get(precondition)
-                    args_idx = self.complete_arguments.index(arg)
+                    prog_idx = self.prog_to_idx.get(precondition, None)
+                    args_idx = self.inverse_complete_arguments.get(arg, None)
+                    assert prog_idx is not None and args_idx is not None
                     if self.can_be_called(prog_idx, args_idx):
                         current_actions.append([precondition, arg, prog_idx, args_idx])
 
