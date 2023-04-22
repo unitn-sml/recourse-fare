@@ -106,29 +106,39 @@ class FastPreprocessor:
         :type exclude: list, optional
         """
 
+        self.categorical_encoded = []
         self.constants = {}
         self.inverse_constants = {}
-        self.feature_names_ordering = None
 
-        self.numerical_cols = set()
-        self.categorical_cols = set()
+        self.original_feature_name_ordering = []
+        self.feature_names_ordering = []
+
+        self.continuous = []
+        self.categorical = []
 
         self.exclude=exclude
 
     def fit(self, data: pd.DataFrame):
 
-        self.feature_names_ordering = list(set(data.columns)-set(self.exclude))
+        self.original_feature_name_ordering = data.columns
 
-        for c in self.feature_names_ordering:
+        for c in self.original_feature_name_ordering:
             if is_numeric_dtype(data[c]):
-                self.numerical_cols.add(c)
+                self.feature_names_ordering.append(c)
+                self.continuous.append(c)
                 self.constants[c] = [
                     data[c].min(), data[c].max()
                 ]
             elif is_string_dtype(data[c]):
-                 self.categorical_cols.add(c)
-                 self.constants[c] = { v:k for k,v, in enumerate(data[c].unique())}
-                 self.inverse_constants[c] = { k:v for k,v, in enumerate(data[c].unique())}
+                
+                categorical_unique_values = sorted(data[c].unique())
+
+                self.categorical.append(c)
+                self.categorical_encoded += [f"{c}_{v}" for v in categorical_unique_values]
+                self.feature_names_ordering += [f"{c}_{v}" for v in categorical_unique_values]
+                
+                self.constants[c] = { v:k for k,v in enumerate(categorical_unique_values)}
+                self.inverse_constants[c] = { k:v for k,v in enumerate(categorical_unique_values)}
             else:
                 print(f"Skipping {c}. It is not string nor numeric.")
     
@@ -136,65 +146,81 @@ class FastPreprocessor:
         return self.feature_names_ordering
 
     def transform_dict(self, data: dict, type="values") -> dict:
-        transformed = data.copy()
-
-        for c in self.feature_names_ordering:
-            if c in self.numerical_cols:
-                min_val, max_val = self.constants.get(c)
-                transformed[c] = 1+(transformed[c]-min_val)/(max_val-min_val)
-                transformed[c] = transformed[c] if transformed[c] >= 1 else 1
-                transformed[c] = transformed[c] if transformed[c] <= 2 else 2
-            elif c in self.categorical_cols:
-                transformed[c] = 1+self.constants[c].get(transformed[c], 0)
         
+        transformed = []
+
+        for c in self.original_feature_name_ordering:
+            if c in self.continuous:
+                min_val, max_val = self.constants.get(c)
+                encoded_value = (data[c]-min_val)/(max_val-min_val)
+                transformed.append(min(1, max(0, encoded_value)))
+            elif c in self.categorical:
+                encoded_value = np.zeros(len(self.constants[c])).tolist()
+                idx_to_set = self.constants[c].get(data[c], -1)
+                if idx_to_set != -1:
+                    encoded_value[idx_to_set] = 1                
+
+                transformed += encoded_value
+
         if type == "values":
-            return np.array([
-               transformed[c] for c in self.feature_names_ordering
-            ])
+            return np.array(transformed)
         else:
-            return transformed
+            return {k:v for k,v in zip(self.feature_names_ordering, transformed)}
 
     def transform(self, data: pd.DataFrame, type="values") -> pd.DataFrame:
-        transformed = data.copy()
-
-        for c in self.feature_names_ordering:
-            if is_numeric_dtype(data[c]):
-                min_val, max_val = self.constants.get(c)
-                transformed[c] = 1+(transformed[c]-min_val)/(max_val-min_val)
-            elif is_string_dtype(data[c]):
-                transformed[c] = transformed[c].apply(
-                    lambda x: 1+self.constants[c].get(x, 0)
-                )
         
-        if type == "values":
-            return transformed.values
-        else:
-            return transformed
-    
-    def inverse_transform(self, data: pd.DataFrame, type="values") -> pd.DataFrame:
         transformed = data.copy()
+        transformed = transformed.to_dict('records')
 
-        def return_correct_key(k, keys):
-            min_val, max_val = max(keys), min(keys)
-            if k < min_val:
-                return 1
-            elif k > max_val:
-                return max_val
-            else:
-                return k
+        encoded_data = []
+        for record in transformed:
+            encoded_data.append(
+                self.transform_dict(record, type)
+            )
 
+        if type == "values":
+            return np.array(encoded_data)
+        else:
+            return pd.DataFrame.from_records(encoded_data)
+    
+    def get_one_hot_index(self, data: dict, feature:str):
+        for k,v in self.constants[feature].items():
+            if data.get(f"{feature}_{k}") == 1:
+                return v
+        return -1
+    
+    def inverse_transform_dict(self, data: dict, type="values"):
+
+        transformed = {}
+        
         for c in self.feature_names_ordering:
-            if c in self.inverse_constants:
-                transformed[c] = transformed[c].apply(
-                    lambda x: self.inverse_constants[c].get(return_correct_key(int(x)-1, list(self.inverse_constants[c].keys())))
-                )
-            elif c in self.constants:
+            v = data.get(c)
+            if c in self.continuous:
                 min_val, max_val = self.constants.get(c)
                 transformed[c] = (transformed[c]-1)*(max_val-min_val)+min_val
-                transformed[c] = transformed[c].apply(lambda x: min_val if x < min_val else x)
-                transformed[c] = transformed[c].apply(lambda x: max_val if x > max_val else x)
-        
+                transformed[c] = max(min_val, min(transformed[c], max_val))
+            elif c in self.categorical_encoded:
+                feature_name, value = c.split()
+                if v == 1:
+                    transformed[feature_name] = value
+
         if type == "values":
-            return transformed.values
+            return [transformed.get(c, None) for c in self.original_feature_name_ordering]
         else:
-            return transformed
+            return {v:transformed.get(v, None) for v in self.original_feature_name_ordering}
+
+    def inverse_transform(self, data: pd.DataFrame, type="values") -> pd.DataFrame:
+        
+        transformed = data.copy()
+        transformed = transformed.to_dict('records')
+
+        encoded_data = []
+        for record in transformed:
+            encoded_data.append(
+                self.inverse_transform_dict(record, type)
+            )
+
+        if type == "values":
+            return np.array(encoded_data)
+        else:
+            return pd.DataFrame.from_records(encoded_data)
