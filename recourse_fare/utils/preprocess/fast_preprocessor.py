@@ -197,12 +197,15 @@ class FastPreprocessor:
             v = data.get(c)
             if c in self.continuous:
                 min_val, max_val = self.constants.get(c)
-                transformed[c] = (transformed[c]-1)*(max_val-min_val)+min_val
-                transformed[c] = max(min_val, min(transformed[c], max_val))
+                transformed[c] = v*(max_val-min_val)+min_val
+                transformed[c] = max(min_val, min(v, max_val))
             elif c in self.categorical_encoded:
-                feature_name, value = c.split()
-                if v == 1:
-                    transformed[feature_name] = value
+                for c_original in self.categorical:
+                    if v == 1:
+                        if c_original in c:
+                            value = c.replace(f"{c_original}_", "")    
+                            transformed[c_original] = value
+                            break
 
         if type == "values":
             return [transformed.get(c, None) for c in self.original_feature_name_ordering]
