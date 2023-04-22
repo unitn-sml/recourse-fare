@@ -65,27 +65,24 @@ def get_cost_from_env(env, action_index, args_index, env_state = None):
 
     return cost
 
-def get_cost_from_tree(env, root_node):
+def get_cost_from_tree(root_node):
 
-    cost = []
+    cost = 0
     stack = [root_node]
     length = 0
     while stack:
-        cur_node = stack[0]
 
-        if cur_node.selected:
-            length += 1
+        assert len(stack) == 1
 
-            if cur_node.program_from_parent_index is not None:
+        cur_node = stack.pop(0)
+        
+        length += 1
+        cost = cur_node.cost
 
-                cost.append(
-                    get_cost_from_env(env, cur_node.program_from_parent_index, cur_node.args_index, cur_node.env_state.copy())
-                )
-
-        stack = stack[1:]
         for child in cur_node.childs:
-            stack.append(child)
-    return sum(cost), length
+            if child.selected:
+                stack.append(child)
+    return cost, length
 
 def get_trace(env, root_node):
 
