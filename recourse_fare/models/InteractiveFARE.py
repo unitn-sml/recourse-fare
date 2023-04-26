@@ -117,7 +117,7 @@ class InteractiveFARE:
 
                     # Show the choices to the user and let her pick the best one
                     # We supply the user the real weights.
-                    best_action, best_value, best_intervention, best_previous_state, _ = self._ask_user(
+                    (best_action, best_value, best_intervention, best_previous_state, _), _ = self._ask_user(
                         env, choices, W_dict[i].copy()
                     )
                     assert env.features == current_env_state
@@ -239,10 +239,13 @@ class InteractiveFARE:
         return can_continue, failed_user, some_questions_asked, no_candidate_intervention_found
 
     def _ask_user(self, env: EnvironmentWeights, choices: list, custom_weights: dict=None):
-        return self.user.compute_best_action(env, choices,  custom_weights)       
+        return self.user.compute_best_action(env, choices, custom_weights)       
 
     def _generate_choice_set(self, current_features: dict, potential_set: list, asked_actions: list):
         
+        if self.verbose:
+            print("[*] Generating the choice set.")
+
         # If we did not find enough interventions, we return an empty choice set
         if len(potential_set) < self.choice_set_size:
             return []
@@ -255,6 +258,9 @@ class InteractiveFARE:
         # therefore avoid asking this question.
         if len(choices) < self.choice_set_size:
             choices = []
+        
+        if self.verbose:
+            print("[*] Done generating the choice set.")
 
         return choices
     

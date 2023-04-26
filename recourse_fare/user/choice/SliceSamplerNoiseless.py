@@ -146,9 +146,9 @@ class SliceSamplerNoiseless(SliceSampler):
             self.current_particles = []
 
         if len(self.current_particles) < self.nparticles:
-            max_retries = 4
+            max_retries = 100
             while(len(self.current_particles) < self.nparticles and max_retries > 0):
-                w_current = self.mixture.sample(5000)
+                w_current = self.mixture.sample(self.nparticles)
                 w_current = list(filter(
                     lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
                     tqdm(w_current) if self.verbose else w_current

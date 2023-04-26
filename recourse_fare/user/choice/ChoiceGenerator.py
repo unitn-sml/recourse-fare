@@ -17,26 +17,32 @@ class ChoiceGenerator:
 
         return result
 
-    def compute_eu(self, choice_set, env, user: User):
+    def compute_eu(self, choice_set, env, user: User, custom_weights: dict):
 
         if len(choice_set) == 0:
             return -10000
 
         # Compute first term
-        intervention_costs = []
-        for action, value, intervention, choice_env, initial_env in choice_set:
-            int_cost_tmp = (user.compute_intervention_cost(env, choice_env.copy(), intervention),
-                            intervention,
-                            choice_env)
-            intervention_costs.append(
+        intervention_eu = []
+
+        # Compute best action given the current environment
+        (best_action, best_value, best_intervention, best_previous_state, best_initial_state), intervention_costs = user.compute_best_action(env, choice_set, custom_weights)
+        custom_best_action = (best_action, best_value, best_intervention, best_previous_state, best_initial_state)
+
+        for k, (action, value, intervention, choice_env, _) in enumerate(choice_set):
+
+            choice_probability = user.compute_choice_probability((action, value, env, choice_env.copy()),
+                env, choice_set, custom_weights=custom_weights, custom_best_action=custom_best_action)
+
+            intervention_eu.append(
                 (
-                    user.compute_choice_probability((action, value, env, choice_env.copy()), env, choice_set),
-                    int_cost_tmp
+                    choice_probability,
+                    (intervention_costs[k], intervention, choice_env)
                 )
             )
 
-        intervention_costs = [i[0]*i[1][0] for i in intervention_costs]
-        return np.sum(intervention_costs)
+        intervention_eu = [i[0]*i[1][0] for i in intervention_eu]
+        return np.sum(intervention_eu)
 
     def compute_eus(self, env, user, sampled_w, choice_set):
 
@@ -45,12 +51,6 @@ class ChoiceGenerator:
         if len(sampled_w) == 0:
             return -10000
 
-        previous_weights = env.weights.copy()
-
-        for w in sampled_w:
-            env.weights = w
-            eus += -self.compute_eu(choice_set, env, user)
-        
-        env.weights = previous_weights.copy()
+        eus = sum([self.compute_eu(choice_set, env, user, w) for w in sampled_w])
 
         return eus/len(sampled_w)
