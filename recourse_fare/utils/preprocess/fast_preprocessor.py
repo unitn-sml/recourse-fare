@@ -142,7 +142,7 @@ class FastPreprocessor:
             else:
                 print(f"Skipping {c}. It is not string nor numeric.")
     
-    def get_feature_names_out(self):
+    def get_feature_names_out(self, feature_names=None):
         return self.feature_names_ordering
 
     def transform_dict(self, data: dict, type="values") -> dict:

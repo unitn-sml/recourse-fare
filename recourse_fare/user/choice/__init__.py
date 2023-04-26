@@ -1,2 +1,3 @@
 from .ChoiceGenerator import ChoiceGenerator
 from .SliceSamplerNoiseless import SliceSamplerNoiseless
+from .SliceSamplerLogistic import SliceSamplerLogistic

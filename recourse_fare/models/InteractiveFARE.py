@@ -3,8 +3,8 @@ from ..utils.functions import import_dyn_class, backtrack_eus
 from ..environment_w import EnvironmentWeights
 from ..mcts import MCTSWeights
 from ..models import WFARE
-from ..user.user import User, NoiselessUser
-from ..user.choice import ChoiceGenerator, SliceSamplerNoiseless
+from ..user.user import User, NoiselessUser, LogisticNoiseUser
+from ..user.choice import ChoiceGenerator, SliceSamplerNoiseless, SliceSamplerLogistic
 from ..utils.Mixture import MixtureModel
 
 import numpy as np
@@ -28,17 +28,25 @@ class InteractiveFARE:
 
         self.mixture = mixture
 
-        self.sampler = SliceSamplerNoiseless(nodes=features, 
-                                             nsteps=mcmc_steps,
-                                             mixture=self.mixture,
-                                             nparticles=n_particles,
-                                             verbose=verbose)
+        if isinstance(user, LogisticNoiseUser):
+            # In the case of the logistic user, the sampler will use the noiseless_user
+            # only to compute the intervention costs, which are independent of the
+            # the response model. 
+            sampler_type = SliceSamplerLogistic
+        else:
+            sampler_type = SliceSamplerNoiseless
+
+        self.sampler = sampler_type(nodes=features, 
+                                    nsteps=mcmc_steps,
+                                    mixture=self.mixture,
+                                    nparticles=n_particles,
+                                    verbose=verbose)
         self.choice_generator = ChoiceGenerator()
 
         self.user: User = user
         self.noiseless_user: NoiselessUser = NoiselessUser()
 
-    def predict(self, X, W, G: dict=None, full_output=False, **kwargs):
+    def predict(self, X, W, G: dict=None, full_output=False, batching: int=1, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -127,21 +135,23 @@ class InteractiveFARE:
 
                     # Sample the weights given the current user answers
                     # The sampling is done with the estimated weights
-                    try:
-                        splr, _ = self.sampler.sample([((best_action, best_value, best_intervention.copy()), choices)], env, self.noiseless_user)
+                    if question % batching == 0: 
+                        try:
+                            splr, _ = self.sampler.sample([((best_action, best_value, best_intervention.copy()), choices)], env, self.noiseless_user)
 
-                        # If we did not find enough particles, then we abort
-                        # and we ask a new question to the user.
-                        if len(self.sampler.current_particles) == 0:
+                            # If we did not find enough particles, then we abort
+                            # and we ask a new question to the user.
+                            if len(self.sampler.current_particles) == 0:
+                                print(f"No particle found (user {i}, question {question}).")
+                                failed_user = True
+                                break
+
+                        except Exception as e:
+                            # If we fail sampling, then we skip this user and we go to the next
+                            print("Exception while sampling: ", e)
                             failed_user = True
                             break
-
-                    except Exception as e:
-                        # If we fail sampling, then we skip this user and we go to the next
-                        print("Exception while sampling: ", e)
-                        failed_user = True
-                        break
-                    assert env.features == current_env_state
+                        assert env.features == current_env_state
 
                     # Append current choice set, so that we avoid to build it in the future
                     # We also record the environment where we asked the question, such to avoid
