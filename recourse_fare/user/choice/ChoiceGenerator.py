@@ -51,6 +51,6 @@ class ChoiceGenerator:
         if len(sampled_w) == 0:
             return -10000
 
-        eus = sum([self.compute_eu(choice_set, env, user, w) for w in sampled_w])
+        eus = sum([-self.compute_eu(choice_set, env, user, w) for w in sampled_w])
 
         return eus/len(sampled_w)
