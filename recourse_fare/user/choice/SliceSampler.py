@@ -5,6 +5,8 @@ import copy
 from scipy.stats import multivariate_normal, norm, uniform
 from copy import deepcopy
 
+from ...utils.functions import compute_intervention_cost
+
 class SliceSampler:
 
     def __init__(self, nodes, nparticles=100, nsteps=100, temperature=1.5, verbose=True):
@@ -45,7 +47,7 @@ class SliceSampler:
         """
         return uniform.logpdf(w[0], 1, 100)
 
-    def log_likelihood(self, w, constraints, env, user):
+    def log_likelihood(self, w, constraints, env):
 
         # Evaluate the consistency of these weights with the linear constraints
         probability = 1
@@ -63,7 +65,7 @@ class SliceSampler:
                     break
             assert best_action_env != -1
 
-            md = np.array([-self.temperature * user.compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices])
+            md = np.array([-self.temperature * compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices])
             md = md - md.max()
             md = [np.exp(m) for m in md]
             total_cost = np.sum(md)
@@ -80,10 +82,10 @@ class SliceSampler:
 
         return np.log(probability) if probability > 0 else -1000
 
-    def logpost(self, w_weights, constraints, env, user):
+    def logpost(self, w_weights, constraints, env):
         '''The natural logarithm of the posterior.'''
         w = {k: v for k, v in zip(self.nodes, w_weights)}
-        return self.log_prior_mu(w_weights) + self.log_likelihood(w, constraints, env, user)
+        return self.log_prior_mu(w_weights) + self.log_likelihood(w, constraints, env)
 
     def get_current_particles(self):
         return [{k:v for k,v in zip(self.nodes, w)} for w in self.current_particles]
@@ -109,7 +111,7 @@ class SliceSampler:
             while counter >= 0 and not_found > 0:
                 w = np.random.multivariate_normal(self.mu_zero, self.cov_zer, 1)[0]
 
-                if np.isfinite(self.logpost(w, self.constraints, copy.deepcopy(env), copy.deepcopy(user))):
+                if np.isfinite(self.logpost(w, self.constraints, copy.deepcopy(env))):
                     self.start.append(w)
                     counter -= 1
                     not_found = 5000
@@ -123,7 +125,7 @@ class SliceSampler:
         current_steps_needed = self.nsteps * questions
 
         sampler = zeus.EnsembleSampler(self.nwalkers, self.ndim, self.logpost,
-                                           args=[self.constraints, copy.deepcopy(env), copy.deepcopy(user)], verbose=False
+                                           args=[self.constraints, copy.deepcopy(env)], verbose=False
                                            )  # Initialise the sampler
 
         sampler.run_mcmc(self.start, current_steps_needed, progress=True)  # Run sampling

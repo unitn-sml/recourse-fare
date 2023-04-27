@@ -8,6 +8,42 @@ import numpy as np
 
 from itertools import permutations
 
+from ..environment_w import EnvironmentWeights
+
+def compute_intervention_cost(env: EnvironmentWeights, env_state: dict, intervention: list,
+                                  custom_weights: dict=None, bin_argument: bool=True) -> float:
+        """
+        Compute the cost of an intervention. It does not modify the environment, however, this
+        function is unsafe to be used in a multi-threaded context. Unless the object in replicated
+        in each process separately
+        :param intervention: ordered list of action/value/type tuples
+        :param custom_env: feature updates which are applied before computing the cost (not persistent)
+        :param estimated: if True, we compute the cost using the estimated graph
+        :param bin_argument: if True, convert the argument to a binned value.
+        :return: intervention cost
+        """
+
+        prev_state = env.features.copy()
+        prev_weights = env.weights.copy()
+
+        env.features = env_state.copy()
+        env.weights = custom_weights if custom_weights else env.weights
+
+        intervention_cost = 0
+        for action, value in intervention:
+            prog_idx = env.prog_to_idx.get(action)
+            if bin_argument:
+                value_idx = env.inverse_complete_arguments.get(value)
+                intervention_cost += env.get_cost(prog_idx, value_idx)
+            else:
+                intervention_cost += env.get_cost_raw(prog_idx, value)
+            env.act(action, value)
+
+        env.features = prev_state
+        env.weights = prev_weights
+
+        return intervention_cost
+
 def import_dyn_class(path: str):
     """
     Import dynamically a python class which can be then used
@@ -57,6 +93,9 @@ def get_cost_from_env(env, action_index, args_index, env_state = None):
     if env_state is not None:
         tmp_state = env.get_state()
         env.reset_to_state(env_state)
+        
+    action_index = env.prog_to_idx.get(action_index)
+    args_index = env.inverse_complete_arguments.get(args_index)
 
     cost = env.get_cost(action_index, args_index)
 

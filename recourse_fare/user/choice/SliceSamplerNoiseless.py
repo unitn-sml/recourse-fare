@@ -5,7 +5,7 @@ import copy
 from tqdm import tqdm
 
 from .SliceSampler import SliceSampler
-from ...utils.functions import plot_sampler
+from ...utils.functions import plot_sampler, compute_intervention_cost
 
 class SliceSamplerNoiseless(SliceSampler):
 
@@ -18,7 +18,7 @@ class SliceSamplerNoiseless(SliceSampler):
         self.particles_likelihood = []
         self.keep_particles = keep_particles
         self.mixture = mixture
-        self.cov_scaling = 10
+        self.cov_scaling = 1
     
     def log_boundaries(self, w_weights, constraints, env, user):
         if not all([v != 0.0 for v in w_weights]):
@@ -43,7 +43,7 @@ class SliceSamplerNoiseless(SliceSampler):
                 continue
             
             # Compute the cost given the weights
-            md = [user.compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices]
+            md = [compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices]
 
             # compute the best action for this user
             best_action, best_argument, best_intervention, _, _ = choices[md.index(min(md))]

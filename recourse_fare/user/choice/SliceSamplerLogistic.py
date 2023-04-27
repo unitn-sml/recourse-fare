@@ -5,7 +5,7 @@ import copy
 from tqdm import tqdm
 
 from .SliceSamplerNoiseless import SliceSamplerNoiseless
-from ...utils.functions import plot_sampler
+from ...utils.functions import compute_intervention_cost
 
 class SliceSamplerLogistic(SliceSamplerNoiseless):
 
@@ -14,7 +14,7 @@ class SliceSamplerLogistic(SliceSamplerNoiseless):
 
         self.temperature = 0.9
 
-    def log_likelihood(self, w, constraints, env, user):
+    def log_likelihood(self, w, constraints, env):
 
         # Initialize probability
         probability = 1
@@ -27,7 +27,7 @@ class SliceSamplerLogistic(SliceSamplerNoiseless):
                 continue
             
             # Compute the cost given the weights
-            md = [user.compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices]
+            md = [compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices]
 
             # Get intervention of the best choice
             best_action_idx = -1
@@ -53,8 +53,8 @@ class SliceSamplerLogistic(SliceSamplerNoiseless):
 
         return probability if probability > 0 else -np.inf
 
-    def logpost(self, w, constraints, env, user):
-        lp = self.log_boundaries(w, constraints, env, user)
+    def logpost(self, w, constraints, env):
+        lp = self.log_boundaries(w, constraints, env)
         if not np.isfinite(lp):
             return -np.inf
         return self.log_prior_mu(w) + lp

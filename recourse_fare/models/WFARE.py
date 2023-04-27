@@ -1,4 +1,4 @@
-from ..utils.functions import import_dyn_class, get_cost_from_tree, get_trace
+from ..utils.functions import import_dyn_class, get_cost_from_tree, get_trace, compute_intervention_cost
 from ..mcts import MCTSWeights
 from ..agents.policy import Policy
 
@@ -199,3 +199,31 @@ class WFARE(FARE):
             return pd.DataFrame.from_records(counterfactuals), Y, traces, costs, root_nodes
         else:
             return pd.DataFrame.from_records(counterfactuals)
+    
+    def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, **kwargs):
+
+        X_dict = X.to_dict(orient='records')
+        W_dict = W.to_dict(orient='records')
+
+        costs = []
+
+        for idx, t in enumerate(traces):
+
+            # Build the environment
+            env = import_dyn_class(self.environment_config.get("class_name"))(
+                X_dict[idx].copy(),
+                W_dict[idx].copy(),
+                self.model,
+                **self.environment_config.get("additional_parameters"))
+            
+            # Set random type
+            if G:
+                env.structural_weights.set_scm_structure(G[idx])
+            
+            # Compute the intervention costs
+            t_cost = compute_intervention_cost(
+                env, X_dict[idx].copy(), t, custom_weights=W_dict[idx].copy(), **kwargs
+            )
+            costs.append(t_cost)
+        
+        return costs

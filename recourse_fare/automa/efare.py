@@ -118,8 +118,6 @@ class EFAREModel:
         for k, v in self.graph.items():
             df = pd.DataFrame.from_records(v["data"])
             df.drop_duplicates(inplace=True)
-            # Remove inconsistencies
-            #df = df[df.groupby(df.columns)["operation"].transform('nunique') == 1]
 
             # Stop will be empty, so we do not process
             if k == "STOP":
