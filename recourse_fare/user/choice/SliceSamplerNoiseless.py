@@ -20,17 +20,17 @@ class SliceSamplerNoiseless(SliceSampler):
         self.mixture = mixture
         self.cov_scaling = 1
     
-    def log_boundaries(self, w_weights, constraints, env, user):
+    def log_boundaries(self, w_weights, constraints, env):
         if not all([v != 0.0 for v in w_weights]):
             return -np.inf
         w = {k: v for k, v in zip(self.nodes, w_weights)}
-        return self.log_likelihood(w, constraints, env, user)
+        return self.log_likelihood(w, constraints, env)
 
     def log_prior_mu(self, w):
         probab = self.mixture.logpdf(w, cov_scaling=self.cov_scaling)
         return probab if np.isfinite(probab) else -np.inf
 
-    def log_likelihood(self, w, constraints, env, user):
+    def log_likelihood(self, w, constraints, env):
 
         # Initialize probability
         probability = 1
@@ -68,8 +68,8 @@ class SliceSamplerNoiseless(SliceSampler):
 
         return np.log(probability) if probability > 0 else -np.inf
 
-    def logpost(self, w, constraints, env, user):
-        lp = self.log_boundaries(w, constraints, env, user)
+    def logpost(self, w, constraints, env):
+        lp = self.log_boundaries(w, constraints, env)
         if not np.isfinite(lp):
             return -np.inf
         return self.log_prior_mu(w)
@@ -125,7 +125,7 @@ class SliceSamplerNoiseless(SliceSampler):
         particle_mean = np.mean(particles_likelihood, axis=0).tolist()
         return {k:v for k,v in zip(self.nodes, particle_mean)} 
 
-    def sample(self, constraint, env, user, keep=False):
+    def sample(self, constraint, env, keep=False):
 
         if constraint is not None and constraint != []:
             self.constraints += constraint
@@ -138,7 +138,7 @@ class SliceSamplerNoiseless(SliceSampler):
         if self.keep_particles:
             if len(self.current_particles) > 0:
                 self.current_particles = list(filter(
-                        lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
+                        lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env))),
                         tqdm(self.current_particles) if self.verbose else self.current_particles
                     ))
                 if self.verbose:
@@ -151,7 +151,7 @@ class SliceSamplerNoiseless(SliceSampler):
             while(len(self.current_particles) < self.nparticles and max_retries > 0):
                 w_current = self.mixture.sample(self.nparticles, cov_rescaling=self.cov_scaling)
                 w_current = list(filter(
-                    lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
+                    lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env))),
                     tqdm(w_current) if self.verbose else w_current
                 ))
                 self.current_particles += w_current
@@ -172,7 +172,7 @@ class SliceSamplerNoiseless(SliceSampler):
 
         # 1st step: we sample using the differential move
         sampler = zeus.EnsembleSampler(self.nparticles, self.ndim, self.logpost,
-                                           args=[self.constraints, copy.deepcopy(env), copy.deepcopy(user)], light_mode=True,
+                                           args=[self.constraints, copy.deepcopy(env)], light_mode=True,
                                            verbose=False)  # Initialise the sampler
         sampler.run_mcmc(self.start, self.nsteps//2, progress=self.verbose)  # Run sampling
 
@@ -184,7 +184,7 @@ class SliceSamplerNoiseless(SliceSampler):
 
         # Initialise the Ensemble Sampler using the advanced ``GlobalMove``.
         sampler = zeus.EnsembleSampler(self.nparticles, self.ndim, self.logpost,
-                                           args=[self.constraints, copy.deepcopy(env), copy.deepcopy(user)], light_mode=True,
+                                           args=[self.constraints, copy.deepcopy(env)], light_mode=True,
                                            verbose=False, moves=zeus.moves.GlobalMove())
         # Run MCMC
         sampler.run_mcmc(start, self.nsteps//2, progress=self.verbose)
@@ -197,6 +197,6 @@ class SliceSamplerNoiseless(SliceSampler):
             plot_sampler(sampler.get_chain(), self.ndim, sampler=sampler)
 
         # Compute the likelihood for each particle (for this case is equal to the pdf, in case of the logistic noise is different)
-        self.particles_likelihood = [self.logpost(p, self.constraints, copy.deepcopy(env), copy.deepcopy(user)) for p in self.current_particles]
+        self.particles_likelihood = [self.logpost(p, self.constraints, copy.deepcopy(env)) for p in self.current_particles]
 
         return sampler, sampler.get_chain(discard=self.nsteps // 2, thin=10)

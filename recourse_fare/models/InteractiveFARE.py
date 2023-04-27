@@ -137,7 +137,7 @@ class InteractiveFARE:
                     # The sampling is done with the estimated weights
                     if question % batching == 0: 
                         try:
-                            splr, _ = self.sampler.sample([((best_action, best_value, best_intervention.copy()), choices)], env, self.noiseless_user)
+                            splr, _ = self.sampler.sample([((best_action, best_value, best_intervention.copy()), choices)], env)
 
                             # If we did not find enough particles, then we abort
                             # and we ask a new question to the user.
