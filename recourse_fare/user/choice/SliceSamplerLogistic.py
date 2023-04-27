@@ -16,8 +16,9 @@ class SliceSamplerLogistic(SliceSamplerNoiseless):
 
     def log_likelihood(self, w, constraints, env):
 
-        # Initialize probability
-        probability = 1
+        # Initialize probability. Since we are directly summing the log probabilities,
+        # this must be zero at the beginning.
+        probability = 0
 
         # Evaluate the consistency of these weights with the linear constraints
         for action, choices in constraints:
@@ -44,14 +45,13 @@ class SliceSamplerLogistic(SliceSamplerNoiseless):
             total_cost = np.sum(md)
             probabilitiy_choices = [(c / total_cost) for c in md]
 
-            # If probability is 0, break
-            if probabilitiy_choices[best_action_idx] <= 0.0:
+            if probabilitiy_choices[best_action_idx] > 0:
+                probability += np.log(probabilitiy_choices[best_action_idx])
+            else:
                 probability = -np.inf
                 break
 
-            probability += np.log(probabilitiy_choices[best_action_idx])
-
-        return probability if probability > 0 else -np.inf
+        return probability if np.isfinite(probability) else -np.inf
 
     def logpost(self, w, constraints, env):
         lp = self.log_boundaries(w, constraints, env)
