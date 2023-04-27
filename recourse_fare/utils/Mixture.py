@@ -19,13 +19,13 @@ class MixtureModel:
             np.fill_diagonal(cov_a, np.ones(dim))
             self.mixtures_params.append((mu_a, cov_a))
     
-    def sample(self, N, mean=False, only_components=False, noise_variance=1, verbose=False):
+    def sample(self, N, mean=False, only_components=False, cov_rescaling=1, verbose=False):
         samples = []
 
         current_samples = []
         for mu, cov in self.mixtures_params:
             current_samples.append(
-                multivariate_normal.rvs(mu, cov, N)
+                multivariate_normal.rvs(mu, cov*cov_rescaling, N)
             )
         
         for current_sample in tqdm.tqdm(zip(*current_samples), disable=not verbose):

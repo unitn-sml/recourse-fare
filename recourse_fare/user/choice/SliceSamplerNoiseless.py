@@ -18,6 +18,7 @@ class SliceSamplerNoiseless(SliceSampler):
         self.particles_likelihood = []
         self.keep_particles = keep_particles
         self.mixture = mixture
+        self.cov_scaling = 10
     
     def log_boundaries(self, w_weights, constraints, env, user):
         if not all([v != 0.0 for v in w_weights]):
@@ -26,7 +27,7 @@ class SliceSamplerNoiseless(SliceSampler):
         return self.log_likelihood(w, constraints, env, user)
 
     def log_prior_mu(self, w):
-        probab = self.mixture.logpdf(w, cov_scaling=10)
+        probab = self.mixture.logpdf(w, cov_scaling=self.cov_scaling)
         return probab if np.isfinite(probab) else -np.inf
 
     def log_likelihood(self, w, constraints, env, user):
@@ -148,7 +149,7 @@ class SliceSamplerNoiseless(SliceSampler):
         if len(self.current_particles) < self.nparticles:
             max_retries = 100
             while(len(self.current_particles) < self.nparticles and max_retries > 0):
-                w_current = self.mixture.sample(self.nparticles)
+                w_current = self.mixture.sample(self.nparticles, cov_rescaling=self.cov_scaling)
                 w_current = list(filter(
                     lambda wx: np.isfinite(self.logpost(wx, self.constraints, copy.deepcopy(env), copy.deepcopy(user))),
                     tqdm(w_current) if self.verbose else w_current
