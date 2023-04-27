@@ -26,7 +26,7 @@ class SliceSamplerNoiseless(SliceSampler):
         return self.log_likelihood(w, constraints, env, user)
 
     def log_prior_mu(self, w):
-        probab = self.mixture.logpdf(w)
+        probab = self.mixture.logpdf(w, cov_scaling=10)
         return probab if np.isfinite(probab) else -np.inf
 
     def log_likelihood(self, w, constraints, env, user):

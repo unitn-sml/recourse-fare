@@ -44,19 +44,19 @@ class MixtureModel:
                 )
         return samples
 
-    def logpdf(self, w):
-        prob = self.pdf(w)
+    def logpdf(self, w, cov_scaling: float=1.0):
+        prob = self.pdf(w, cov_scaling=cov_scaling)
         return np.log(prob) if prob > 0 else -np.infty
 
-    def pdf(self, w, full=False):
+    def pdf(self, w, full=False, cov_scaling: float=1.0):
 
         if full:
             return np.array(
-                [multivariate_normal.pdf(w, mu, cov) for mu, cov in self.mixtures_params]
+                [multivariate_normal.pdf(w, mu, cov*cov_scaling) for mu, cov in self.mixtures_params]
             )
 
         scaling = len(self.mixtures_params)
         prob = 0.0
         for mu, cov in self.mixtures_params:
-            prob += 1/scaling * multivariate_normal.pdf(w, mu, cov)
+            prob += 1/scaling * multivariate_normal.pdf(w, mu, cov*cov_scaling)
         return prob
