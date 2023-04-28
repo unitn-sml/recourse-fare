@@ -142,17 +142,20 @@ def get_trace(env, root_node):
     return trace
 
 def backtrack_eus(env, potential_set, max_choice_set, choice_generator, user, sampler, asked_questions,
-                  choices_id, choices, random_choice_set=False):
+                  choices_id, choices, random_choice_set=False, verbose=False):
 
     # If random, then pick up three actions which we did not see before:
     if random_choice_set: 
+
+        if verbose:
+            print("[*] Choosing random choice set.")
         
         # Add additional fallback
         if len(potential_set) < max_choice_set:
             return None
 
         already_asked = True
-        counter = 10
+        counter = 100
         while(already_asked and counter > 0):
             already_asked = False
             ids = np.random.choice(list(range(len(potential_set))), max_choice_set, replace=False)

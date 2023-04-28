@@ -14,7 +14,8 @@ class InteractiveFARE:
 
     def __init__(self, recourse_model: WFARE, user: User, mixture: MixtureModel, features: list,
                  questions: int=10, choice_set_size: int=2,
-                 mcmc_steps=100, n_particles=100, verbose: bool=False) -> None:
+                 mcmc_steps=100, n_particles=100, verbose: bool=False,
+                 random_choice_set: bool=False) -> None:
         self.questions = questions
         self.choice_set_size = choice_set_size
 
@@ -27,6 +28,8 @@ class InteractiveFARE:
         self.mcts_config = self.recourse_model.mcts_config
 
         self.mixture = mixture
+
+        self.random_choice_set = random_choice_set
 
         if isinstance(user, LogisticNoiseUser):
             # In the case of the logistic user, the sampler will use the noiseless_user
@@ -234,7 +237,8 @@ class InteractiveFARE:
     
         choices = backtrack_eus(current_features, potential_set, self.choice_set_size, 
                                 self.choice_generator, self.noiseless_user, self.sampler,
-                                asked_actions, [], [])
+                                asked_actions, [], [], random_choice_set=self.random_choice_set,
+                                verbose=self.verbose)
         
         # We did not find enough combinations to make a choice set
         # therefore avoid asking this question.
