@@ -65,6 +65,7 @@ class InteractiveFARE:
 
             # Flag to signal we failed to estimate the weights for a user
             failed_user = False
+            no_candidate_at_first_question = False
             no_candidate_intervention_found = False
             some_questions_asked = False
 
@@ -94,10 +95,11 @@ class InteractiveFARE:
 
                 # If we reached recourse, we need to reset the environment
                 env.start_task()
-                if env.get_reward() > 0 or failed_user or no_candidate_intervention_found or some_questions_asked:
+                if env.get_reward() > 0 or failed_user or no_candidate_at_first_question or no_candidate_intervention_found or some_questions_asked:
                 
                     env.features = X_dict[i].copy()
                     env.weights = estimated_weights
+                    no_candidate_at_first_question = False
                     no_candidate_intervention_found = False
                     some_questions_asked = False
                     failed_user = False
@@ -115,7 +117,7 @@ class InteractiveFARE:
 
                 # Assert that everything is going well
                 (can_continue,
-                 failed_user,
+                 no_candidate_at_first_question,
                  no_candidate_intervention_found,
                  some_questions_asked) = self._assert_elicitation_state(choices, question)
 
@@ -205,13 +207,13 @@ class InteractiveFARE:
     def _assert_elicitation_state(self, choice_set, question):
 
         can_continue = False
-        failed_user = False
+        no_candidate_at_first_question = False
         some_questions_asked = False
         no_candidate_intervention_found = False
 
         if len(choice_set) == 0 and question == 0:
             print("No candidate intervention found (no choices)")
-            failed_user = True
+            no_candidate_at_first_question = True
         elif len(choice_set) == 0 and question != 0:
             print("No candidate intervention found (asked some questions)")
             some_questions_asked = True
@@ -221,7 +223,7 @@ class InteractiveFARE:
         else:
             can_continue = True
         
-        return can_continue, failed_user, some_questions_asked, no_candidate_intervention_found
+        return can_continue, no_candidate_at_first_question, some_questions_asked, no_candidate_intervention_found
 
     def _ask_user(self, env: EnvironmentWeights, choices: list, custom_weights: dict=None):
         return self.user.compute_best_action(env, choices, custom_weights)       
