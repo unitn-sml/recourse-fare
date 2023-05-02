@@ -49,8 +49,10 @@ class EnvironmentWeights(Environment):
         feature_name = self.get_feature_name(program, argument)
 
         # Perform the action on the environment
+        # We avoid using act() because of a dangerous recoursion loop.
         self.has_been_reset = True
-        self.act(program, argument)
+        assert program in self.primary_actions, 'action {} is not defined'.format(program)
+        self.prog_to_func[program](argument)
 
         # Get the new value of the feature
         resulting_value = self.features.get(feature_name)
@@ -96,5 +98,44 @@ class EnvironmentWeights(Environment):
         self.features = prev_state
 
         return action_cost
+    
+    def get_list_of_costs(self):
+
+        lists_of_costs = []
+
+        # For each available program and argument, compute the cost
+        for program in self.programs_library:
+
+            if program == "INTERVENE":
+                continue
+
+            available_args = self.arguments.get(self.programs_library.get(program).get("args"))
+            
+            current_average_cost = []
+
+            for argument in available_args:
+
+                prog_idx = self.prog_to_idx.get(program)
+                args_idx = self.inverse_complete_arguments.get(argument)
+
+                if self.can_be_called(prog_idx, args_idx):
+                    current_average_cost.append(self.get_cost(prog_idx, args_idx))
+
+            lists_of_costs.append(np.mean(current_average_cost) if len(current_average_cost) > 0 else -1)
+        
+        # Standardize the costs
+        lists_of_costs = np.array(lists_of_costs)
+        max_costs = lists_of_costs.max()
+
+        mask_not_available = np.where(lists_of_costs >= 0, 1, 0)
+
+        lists_of_costs = lists_of_costs - max_costs
+        lists_of_costs = np.exp(lists_of_costs)
+        lists_of_costs = lists_of_costs / lists_of_costs.sum()  
+
+        # Negative values are set to -1
+        lists_of_costs = np.where(mask_not_available, lists_of_costs, 0)
+
+        return lists_of_costs
 
 
