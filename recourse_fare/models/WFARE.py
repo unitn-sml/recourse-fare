@@ -76,7 +76,7 @@ class WFARE(FARE):
                     **self.mcts_config
                 )
 
-                traces, root_node, node_expanded = mcts.sample_intervention()
+                traces, root_node, node_expanded = mcts.sample_intervention()   
 
                 # Run one optimization step within the trainer
                 act_loss, crit_loss, args_loss = self.trainer.train_one_step([traces])

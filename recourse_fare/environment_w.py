@@ -125,16 +125,17 @@ class EnvironmentWeights(Environment):
         
         # Standardize the costs
         lists_of_costs = np.array(lists_of_costs)
-        max_costs = lists_of_costs.max()
-
         mask_not_available = np.where(lists_of_costs >= 0, 1, 0)
+        
+        lists_of_costs = -lists_of_costs
+        max_costs = lists_of_costs.max()
 
         lists_of_costs = lists_of_costs - max_costs
         lists_of_costs = np.exp(lists_of_costs)
         lists_of_costs = lists_of_costs / lists_of_costs.sum()  
 
         # Negative values are set to -1
-        lists_of_costs = np.where(mask_not_available, lists_of_costs, 0)
+        lists_of_costs = mask_not_available*lists_of_costs
 
         return lists_of_costs
 

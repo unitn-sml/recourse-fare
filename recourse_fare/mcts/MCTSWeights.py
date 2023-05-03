@@ -12,6 +12,25 @@ class MCTSWeights(MCTS):
     def __init__(self, environment, policy, number_of_simulations: int = 100, exploration=True, dir_noise: float = 0.03, dir_epsilon: float = 0.3, level_closeness_coeff: float = 3, level_0_penalty: float = 1, qvalue_temperature: float = 1, temperature: float = 1.3, c_puct: float = 0.5, gamma: float = 0.97, action_cost_coeff: float = 1, action_duplicate_cost: float = 1) -> None:
         super().__init__(environment, policy, number_of_simulations, exploration, dir_noise, dir_epsilon, level_closeness_coeff, level_0_penalty, qvalue_temperature, temperature, c_puct, gamma, action_cost_coeff, action_duplicate_cost)
 
+    def _rescale_nodes(self, list_of_nodes: list):
+
+        costs = np.array([n.single_action_cost for n in list_of_nodes])
+        max_value = costs.max()
+        min_value = costs.min()
+
+        if max_value == min_value:
+            costs = np.ones_like(costs)
+        else:
+            costs = (costs-min_value)/(max_value-min_value)*(99)+1
+        
+        new_nodes = []
+        for k, n in enumerate(list_of_nodes):
+            n.single_action_cost = costs[k]
+            new_nodes.append(n)
+
+        return new_nodes
+            
+
     def _expand_node(self, node):
 
         program_index, observation, env_state, h, c, h_args, c_args, depth = (
@@ -95,6 +114,9 @@ class MCTSWeights(MCTS):
 
                     # Add the new node in a temporary array
                     new_nodes.append(new_child)
+
+
+            new_nodes = self._rescale_nodes(new_nodes)
 
             # Append the new nodes to graph
             node.childs = new_nodes

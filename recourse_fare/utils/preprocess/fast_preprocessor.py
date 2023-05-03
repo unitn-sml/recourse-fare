@@ -37,22 +37,26 @@ class StandardPreprocessor():
             else:
                 print(f"Skipping {c}. It is not string nor numeric.")
         
-        self.onehot.fit(data[self.categorical].values)
-        self.scaler.fit(data[self.continuous].values)
+        if self.continuous:
+            self.scaler.fit(data[self.continuous].values)
+            self.feature_names_ordering = self.continuous.copy()
 
-        self.feature_names_ordering = self.continuous.copy()
-        self.feature_names_ordering += self.onehot.get_feature_names_out(input_features=self.categorical).tolist()
+        if self.categorical:
+            self.onehot.fit(data[self.categorical].values)
+            self.feature_names_ordering += self.onehot.get_feature_names_out(input_features=self.categorical).tolist()
 
     def transform(self, data: pd.DataFrame, type: str="values"):
 
         transformed = data.copy()
         transformed.reset_index(drop=True, inplace=True)
 
-        cat_ohe = self.onehot.transform(transformed[self.categorical].values)
         transformed[self.continuous] = self.scaler.transform(transformed[self.continuous].values)
 
-        ohe_df = pd.DataFrame(cat_ohe, columns=self.onehot.get_feature_names_out(input_features=self.categorical))
-        transformed = pd.concat([transformed[self.continuous], ohe_df], axis=1)
+        if self.categorical:
+            cat_ohe = self.onehot.transform(transformed[self.categorical].values)
+
+            ohe_df = pd.DataFrame(cat_ohe, columns=self.onehot.get_feature_names_out(input_features=self.categorical))
+            transformed = pd.concat([transformed[self.continuous], ohe_df], axis=1)
 
         if type == "values":
             return transformed.values
