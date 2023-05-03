@@ -37,7 +37,12 @@ def compute_intervention_cost(env: EnvironmentWeights, env_state: dict, interven
                 intervention_cost += env.get_cost(prog_idx, value_idx)
             else:
                 intervention_cost += env.get_cost_raw(prog_idx, value)
-            env.act(action, value)
+            
+            # Perform the action on the environment
+            # We avoid using act() because it is very costly (since it generates an observation).
+            env.has_been_reset = True
+            assert action in env.primary_actions, 'action {} is not defined'.format(action)
+            env.prog_to_func[action](value)
 
         env.features = prev_state
         env.weights = prev_weights
@@ -103,6 +108,24 @@ def get_cost_from_env(env, action_index, args_index, env_state = None):
         env.reset_to_state(tmp_state)
 
     return cost
+
+def get_single_action_costs(root_node):
+
+    costs = []
+    stack = [root_node]
+    while stack:
+
+        assert len(stack) == 1
+
+        cur_node = stack.pop(0)
+
+        if cur_node.single_action_cost:
+            costs.append(cur_node.single_action_cost)
+
+        for child in cur_node.childs:
+            if child.selected:
+                stack.append(child)
+    return costs
 
 def get_cost_from_tree(root_node):
 
