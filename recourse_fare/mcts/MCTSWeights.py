@@ -398,5 +398,3 @@ class MCTSWeights(MCTS):
                     best_child = child
 
         return best_child
-
-

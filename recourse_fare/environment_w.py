@@ -51,7 +51,6 @@ class EnvironmentWeights(Environment):
         # Perform the action on the environment
         # We avoid using act() because of a dangerous recoursion loop.
         self.has_been_reset = True
-        assert program in self.primary_actions, 'action {} is not defined'.format(program)
         self.prog_to_func[program](argument)
 
         # Get the new value of the feature
@@ -83,8 +82,9 @@ class EnvironmentWeights(Environment):
         feature_name = self.get_feature_name(program, None)
 
         # Perform the action on the environment
+        # We avoid using act() because of a dangerous recoursion loop.
         self.has_been_reset = True
-        self.act(program, args_value)
+        self.prog_to_func[program](args_value)
 
         # Get the new value of the feature
         resulting_value = self.features.get(feature_name)

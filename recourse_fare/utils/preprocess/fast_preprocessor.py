@@ -202,7 +202,6 @@ class FastPreprocessor:
             if c in self.continuous:
                 min_val, max_val = self.constants.get(c)
                 transformed[c] = v*(max_val-min_val)+min_val
-                assert min_val <= transformed[c] <= max_val
             elif c in self.categorical_encoded:
                 for c_original in self.categorical:
                     if v == 1:
