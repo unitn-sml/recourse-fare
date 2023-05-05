@@ -386,7 +386,7 @@ class MCTSWeights(MCTS):
 
                 q_val_action += action_level_closeness
 
-                q_val_action += self.action_cost_coeff * (0.97 ** child.single_action_cost)
+                q_val_action += self.action_cost_coeff * (0.97 ** child.cost)
 
                 if child.program_from_parent_index in repeated_actions:
                     q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))

@@ -106,7 +106,7 @@ class EnvironmentWeights(Environment):
         # For each available program and argument, compute the cost
         for program in self.programs_library:
 
-            if program == "INTERVENE":
+            if program == "INTERVENE" or program == "STOP":
                 continue
 
             available_args = self.arguments.get(self.programs_library.get(program).get("args"))
