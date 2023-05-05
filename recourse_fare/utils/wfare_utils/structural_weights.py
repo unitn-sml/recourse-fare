@@ -5,7 +5,7 @@ import networkx as nx
 
 import numpy as np
 
-class StructuralWeights(ABC):
+class StructuralWeights():
 
     def __init__(self, nodes: list=None, edges: list=None):
         self.scm = nx.DiGraph()

@@ -8,7 +8,7 @@ import numpy as np
 
 
 
-class User(ABC):
+class User():
 
     def __init__(self):
         pass

@@ -5,7 +5,7 @@ import pickle
 import torch
 
 
-class Environment(ABC):
+class Environment():
 
     def __init__(self, features, model, prog_to_func, prog_to_precondition, prog_to_postcondition, programs_library, arguments,
                  max_intervention_depth, prog_to_cost=None, custom_tensorboard_metrics=None):

@@ -68,7 +68,7 @@ class FARE:
         )
     
     def _init_policy(self, environment_config:dict, policy_config: dict):
-        env = import_dyn_class(environment_config.get("class_name"))(None, None,
+        env = import_dyn_class(environment_config.get("class_name"))(features=None, model=None,
                                                                      **self.environment_config.get("additional_parameters"))
 
         num_programs = env.get_num_programs()
@@ -163,7 +163,7 @@ class FARE:
         if depth <= env.max_intervention_depth and not wrong_program:
             reward = env.get_reward()
         else:
-            reward = 0.0
+            reward = 0
 
         counterfactual = env.features.copy()
 
@@ -197,8 +197,8 @@ class FARE:
         for i in tqdm(range(len(X)),  desc="Eval FARE", disable=not verbose):
 
             env_validation = import_dyn_class(self.environment_config.get("class_name"))(
-                X[i].copy(),
-                self.model,
+                features=X[i].copy(),
+                model=self.model,
                 **self.environment_config.get("additional_parameters"))
             
             # If we are using only the agent
@@ -206,7 +206,7 @@ class FARE:
                 counterfactual, reward, trace, cost = self._predict_agent(env_validation)
                 counterfactuals.append(counterfactual)
                 Y.append(reward)
-                trace.append(traces)
+                traces.append(trace)
                 costs.append(cost)
                 root_nodes.append(None)
                 continue
@@ -268,8 +268,8 @@ class FARE:
 
                 mcts = MCTS(
                     import_dyn_class(self.environment_config.get("class_name"))(
-                        features.copy(),
-                        self.model,
+                        features=features.copy(),
+                        model=self.model,
                         **self.environment_config.get("additional_parameters")
                         ), 
                     self.policy,

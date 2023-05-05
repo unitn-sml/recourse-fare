@@ -1,6 +1,6 @@
 from abc import ABC
 
-class MCTSNode(ABC):
+class MCTSNode():
 
     def __init__(self, *initial_data, **kwargs):
         """

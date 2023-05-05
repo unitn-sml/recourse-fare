@@ -1,6 +1,6 @@
 from abc import ABC
 
-class Intervention(ABC):
+class Intervention():
     """
     Object which contains a full execution trace extracted by MCTS with the agent.
     """
