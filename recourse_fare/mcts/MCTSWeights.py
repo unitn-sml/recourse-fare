@@ -115,9 +115,6 @@ class MCTSWeights(MCTS):
                     # Add the new node in a temporary array
                     new_nodes.append(new_child)
 
-
-            new_nodes = self._rescale_nodes(new_nodes)
-
             # Append the new nodes to graph
             node.childs = new_nodes
 
@@ -371,22 +368,7 @@ class MCTSWeights(MCTS):
                                   * (1.0 / (1.0 + child.visit_count)))
                 q_val_action += action_utility
 
-                parent_prog_lvl = self.env.programs_library[self.env.idx_to_prog[node.program_index]]['level']
-                action_prog_lvl = self.env.programs_library[self.env.idx_to_prog[child.program_from_parent_index]][
-                    'level']
-
-                if parent_prog_lvl == action_prog_lvl:
-                    # special treatment for calling the same program or a level 0 action.
-                    action_level_closeness = self.level_closeness_coeff * np.exp(-1)
-                elif action_prog_lvl == 0:
-                    action_level_closeness = self.level_closeness_coeff * np.exp(-self.level_0_penalty)
-                else:
-                    # special treatment for STOP action
-                    action_level_closeness = self.level_closeness_coeff * np.exp(-1)
-
-                q_val_action += action_level_closeness
-
-                q_val_action += self.action_cost_coeff * (0.97 ** child.cost)
+                q_val_action += self.action_cost_coeff * (0.97**child.cost)
 
                 if child.program_from_parent_index in repeated_actions:
                     q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))
