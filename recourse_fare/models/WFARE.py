@@ -206,6 +206,7 @@ class WFARE(FARE):
         W_dict = W.to_dict(orient='records')
 
         costs = []
+        recourse = []
 
         for idx, t in enumerate(traces):
 
@@ -221,9 +222,10 @@ class WFARE(FARE):
                 env.structural_weights.set_scm_structure(G[idx])
             
             # Compute the intervention costs
-            t_cost = compute_intervention_cost(
+            t_cost, has_recourse = compute_intervention_cost(
                 env, X_dict[idx].copy(), t, custom_weights=W_dict[idx].copy(), **kwargs
             )
             costs.append(t_cost)
+            recourse.append(has_recourse)
         
-        return costs
+        return costs, recourse

@@ -43,11 +43,13 @@ def compute_intervention_cost(env: EnvironmentWeights, env_state: dict, interven
             env.has_been_reset = True
             assert action in env.primary_actions, 'action {} is not defined'.format(action)
             env.prog_to_func[action](value)
+        
+        recourse = env.prog_to_postcondition(prev_state.copy(), env.features.copy())
 
         env.features = prev_state
         env.weights = prev_weights
 
-        return intervention_cost
+        return intervention_cost, recourse
 
 def import_dyn_class(path: str):
     """
