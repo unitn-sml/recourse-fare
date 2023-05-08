@@ -164,7 +164,7 @@ class MCTSWeights(MCTS):
                         # if node corresponds to end of an episode, backprogagate real reward
                         reward = self.env.get_reward()
                         if reward > 0:
-                            value = reward * (self.gamma ** node.cost)
+                            value = reward * (self.gamma ** node.cost) * (self.gamma ** node.depth)
                         else:
                             value = -1
 
@@ -329,7 +329,7 @@ class MCTSWeights(MCTS):
         # compute final task reward (with gamma penalization)
         reward = self.env.get_reward()
         if reward > 0 and not illegal_action and not max_depth_reached:
-            task_reward = reward * (self.gamma ** final_node.cost)
+            task_reward = reward * (self.gamma ** final_node.cost) * (self.gamma ** final_node.depth)
         else:
             task_reward = -1
 
@@ -368,7 +368,7 @@ class MCTSWeights(MCTS):
                                   * (1.0 / (1.0 + child.visit_count)))
                 q_val_action += action_utility
 
-                q_val_action += self.action_cost_coeff * (0.97**child.cost)
+                q_val_action += self.action_cost_coeff * (self.gamma ** child.cost) * (self.gamma ** child.depth)
 
                 if child.program_from_parent_index in repeated_actions:
                     q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))
