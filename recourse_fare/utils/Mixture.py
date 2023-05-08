@@ -19,7 +19,7 @@ class MixtureModel:
             np.fill_diagonal(cov_a, np.ones(dim))
             self.mixtures_params.append((mu_a, cov_a))
     
-    def sample(self, N, mean=False, only_components=False, cov_rescaling=1, verbose=False):
+    def sample(self, N, mean=False, only_components=False, cov_rescaling=1, mixture_class=False, verbose=False):
         samples = []
 
         current_samples = []
@@ -39,9 +39,15 @@ class MixtureModel:
                     current_sample
                 )
             else:
-                samples.append(
-                    current_sample[np.random.choice(len(current_sample))]
-                )
+                mixture_id = np.random.choice(len(current_sample))
+                if not mixture_class:
+                    samples.append(
+                        current_sample[mixture_id]
+                    )
+                else:
+                    samples.append(
+                        [mixture_id]+current_sample[mixture_id].tolist()
+                    )
         return samples
 
     def logpdf(self, w, cov_scaling: float=1.0):
