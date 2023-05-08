@@ -7,9 +7,21 @@ import numpy as np
 
 from typing import Union
 
+def mcts_sigmoid(x, eta=0.01):
+    return 1/(1+np.exp(-x*eta))
+
 class MCTSWeights(MCTS):
 
-    def __init__(self, environment, policy, number_of_simulations: int = 100, exploration=True, dir_noise: float = 0.03, dir_epsilon: float = 0.3, level_closeness_coeff: float = 3, level_0_penalty: float = 1, qvalue_temperature: float = 1, temperature: float = 1.3, c_puct: float = 0.5, gamma: float = 0.97, action_cost_coeff: float = 1, action_duplicate_cost: float = 1) -> None:
+    def __init__(self, environment, policy, number_of_simulations: int = 100,
+                 exploration=True, dir_noise: float = 0.03, dir_epsilon: float = 0.3,
+                 level_closeness_coeff: float = 3, level_0_penalty: float = 1,
+                 qvalue_temperature: float = 1, temperature: float = 1.3,
+                 c_puct: float = 0.5, gamma: float = 0.97,
+                 action_cost_coeff: float = 1, action_duplicate_cost: float = 1,
+                 minimum_cost: float=10000) -> None:
+        
+        self.minimum_cost = minimum_cost
+
         super().__init__(environment, policy, number_of_simulations, exploration, dir_noise, dir_epsilon, level_closeness_coeff, level_0_penalty, qvalue_temperature, temperature, c_puct, gamma, action_cost_coeff, action_duplicate_cost)
 
     def _rescale_nodes(self, list_of_nodes: list):
@@ -164,7 +176,7 @@ class MCTSWeights(MCTS):
                         # if node corresponds to end of an episode, backprogagate real reward
                         reward = self.env.get_reward()
                         if reward > 0:
-                            value = reward * (self.gamma ** node.cost) * (self.gamma ** node.depth)
+                            value = reward * (self.gamma ** node.cost) * (self.gamma ** node.depth) * mcts_sigmoid(self.minimum_cost-node.cost)
                         else:
                             value = -1
 
@@ -329,7 +341,7 @@ class MCTSWeights(MCTS):
         # compute final task reward (with gamma penalization)
         reward = self.env.get_reward()
         if reward > 0 and not illegal_action and not max_depth_reached:
-            task_reward = reward * (self.gamma ** final_node.cost) * (self.gamma ** final_node.depth)
+            task_reward = reward * (self.gamma ** final_node.cost) * (self.gamma ** final_node.depth) * mcts_sigmoid(self.minimum_cost-final_node.cost)
         else:
             task_reward = -1
 
@@ -368,7 +380,7 @@ class MCTSWeights(MCTS):
                                   * (1.0 / (1.0 + child.visit_count)))
                 q_val_action += action_utility
 
-                q_val_action += self.action_cost_coeff * (self.gamma ** child.cost) * (self.gamma ** child.depth)
+                q_val_action += self.action_cost_coeff * (self.gamma ** child.cost) * (self.gamma ** child.depth) * mcts_sigmoid(self.minimum_cost-child.cost)
 
                 if child.program_from_parent_index in repeated_actions:
                     q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))

@@ -16,7 +16,12 @@ import numpy as np
 
 class WFARE(FARE):
 
-    def __init__(self, model, policy_config, environment_config, mcts_config, batch_size=50, training_buffer_size=200, validation_steps=10) -> None:
+    def __init__(self, model, policy_config, environment_config, mcts_config, 
+                 batch_size=50, training_buffer_size=200, validation_steps=10,
+                 expectation=None) -> None:
+        
+        self.expectation = expectation
+
         super().__init__(model, policy_config, environment_config, mcts_config, batch_size, training_buffer_size, validation_steps)
 
     def _init_policy(self, environment_config:dict, policy_config: dict):
@@ -35,7 +40,8 @@ class WFARE(FARE):
             **additional_arguments_from_env
         )
 
-    def fit(self, X, W, max_iter=1000, verbose=True, tensorboard=None):
+    def fit(self, X, W, max_iter=1000, verbose=True,
+            tensorboard=None):
 
         # Initialize the various objects needed to train FARE
         self._init_training_objects()
@@ -62,6 +68,15 @@ class WFARE(FARE):
                 # Extract both features and the corresponding weights
                 features = X.sample(1)
                 weigths = W.iloc[[features.index[0]]]
+        
+                # Compute the self-expectation
+                costs_exp = 10000
+                Y_exp = 0
+                if self.expectation is not None:
+                    _, costs_exp, Y_exp, _, _ = self._compute_self_expectation(
+                        features.copy(), self.expectation, weigths 
+                    )
+                
                 features = features.to_dict(orient='records')[0]
                 weigths = weigths.to_dict(orient='records')[0]
 
@@ -73,6 +88,7 @@ class WFARE(FARE):
                         **self.environment_config.get("additional_parameters")
                         ), 
                     self.policy,
+                    minimum_cost = costs_exp if Y_exp > 0 else 10000,
                     **self.mcts_config
                 )
 
@@ -128,7 +144,7 @@ class WFARE(FARE):
     
     def predict(self, X, W, G: dict=None, full_output :bool=False,
                 verbose :bool=True, agent_only :bool=False,
-                mcts_only :bool=False):
+                mcts_only :bool=False, skip_expectation_step:bool=False):
         """Generate counterfactual interventions given FARE.
 
         :param X: the dataset
@@ -142,8 +158,8 @@ class WFARE(FARE):
         :type mcts_only: bool, optional
         """
 
-        X = X.to_dict(orient='records')
-        W = W.to_dict(orient='records')
+        X_dict = X.to_dict(orient='records')
+        W_dict = W.to_dict(orient='records')
 
         counterfactuals = []
         Y = []
@@ -152,9 +168,17 @@ class WFARE(FARE):
         root_nodes = []
         for i in tqdm(range(len(X)),  desc="Eval FARE", disable=not verbose):
 
+            # Compute the self-expectation
+            costs_exp = 1000
+            Y_exp = 0
+            if not skip_expectation_step:
+                df_exp, costs_exp, Y_exp, trace_exp, root_node_exp = self._compute_self_expectation(
+                    X.iloc[[i]], self.expectation, W.iloc[[i]] 
+                )
+
             env_validation = import_dyn_class(self.environment_config.get("class_name"))(
-                X[i].copy(),
-                W[i].copy(),
+                X_dict[i].copy(),
+                W_dict[i].copy(),
                 self.model,
                 **self.environment_config.get("additional_parameters"))
             
@@ -174,6 +198,7 @@ class WFARE(FARE):
 
             mcts_validation = MCTSWeights(
                 env_validation, self.policy,
+                minimum_cost = costs_exp if Y_exp > 0 else 10000,
                 **self.mcts_config
             )
 
@@ -188,12 +213,21 @@ class WFARE(FARE):
             task_reward = trace.task_reward
 
             cost, _ = get_cost_from_tree(root_node)
-            costs.append(cost)
-            traces.append(get_trace(env_validation, root_node))
-            root_nodes.append(root_node)
 
-            Y.append(1 if task_reward > 0 else 0)
-            counterfactuals.append(env_validation.features.copy())
+            # If we get a positive result with the expected value
+            # at a lower cost, then we use it instead.
+            if costs_exp < cost and Y_exp == 1:
+                costs.append(costs_exp)
+                traces += trace_exp
+                root_nodes += root_node_exp
+                Y.append(1 if Y_exp else 0)
+                counterfactuals += df_exp.to_dict("records")
+            else:
+                costs.append(cost)
+                traces.append(get_trace(env_validation, root_node))
+                root_nodes.append(root_node)            
+                Y.append(1 if task_reward > 0 else 0)
+                counterfactuals.append(env_validation.features.copy())
         
         if full_output:
             return pd.DataFrame.from_records(counterfactuals), Y, traces, costs, root_nodes
@@ -229,3 +263,9 @@ class WFARE(FARE):
             recourse.append(has_recourse)
         
         return costs, recourse
+    
+    def _compute_self_expectation(self, X, W_expectation, W_true):
+
+        df, Y, trace, cost, root_node = self.predict(X, W_expectation, full_output=True, verbose=False, skip_expectation_step=True)
+        costs, Y = self.evaluate_trace_costs(trace, X, W_true)
+        return df, costs[0], Y[0], trace, root_node

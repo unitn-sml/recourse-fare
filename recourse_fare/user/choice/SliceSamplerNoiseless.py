@@ -43,7 +43,7 @@ class SliceSamplerNoiseless(SliceSampler):
                 continue
             
             # Compute the cost given the weights
-            md = [compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices]
+            md = [compute_intervention_cost(env, current_env, intervention, w)[0] for a, k, intervention, current_env, _ in choices]
 
             # compute the best action for this user
             best_action, best_argument, best_intervention, _, _ = choices[md.index(min(md))]

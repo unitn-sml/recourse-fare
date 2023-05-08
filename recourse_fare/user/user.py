@@ -39,7 +39,7 @@ class NoiselessUser(User):
 
         intervention_cost_values = []
         for _, _, intervention, current_env, _ in choice_set:
-            int_cost_tmp = compute_intervention_cost(env, current_env, intervention, custom_weights)
+            int_cost_tmp, _ = compute_intervention_cost(env, current_env, intervention, custom_weights)
             intervention_cost_values.append(int_cost_tmp)
 
         return choice_set[intervention_cost_values.index(min(intervention_cost_values))], intervention_cost_values
@@ -72,7 +72,7 @@ class LogisticNoiseUser(User):
         intervention_cost_values = []
         intervention_cost_values_original = []
         for _, _, intervention, current_env, _ in choice_set:
-            int_cost_tmp = compute_intervention_cost(env, current_env, intervention, custom_weights)
+            int_cost_tmp, _ = compute_intervention_cost(env, current_env, intervention, custom_weights)
             intervention_cost_values.append(-self.temperature*int_cost_tmp)
             intervention_cost_values_original.append(int_cost_tmp)
         

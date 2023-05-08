@@ -70,7 +70,7 @@ class InteractiveFARE:
             some_questions_asked = False
 
             # Compute the expected value of the mixture
-            expected_value_mixture = np.mean(self.mixture.sample(100), axis=0)
+            expected_value_mixture = np.mean(self.mixture.sample(1000), axis=0)
 
             # Weights we are going to estimate
             estimated_weights = {k:v for k,v in zip(W_dict[i].keys(), expected_value_mixture)}
@@ -209,7 +209,7 @@ class InteractiveFARE:
         can_continue = False
         no_candidate_at_first_question = False
         some_questions_asked = False
-        no_candidate_intervention_found = False
+        no_candidate_intervention_found =  False
 
         if len(choice_set) == 0 and question == 0:
             print("No candidate intervention found (no choices)")
@@ -265,12 +265,23 @@ class InteractiveFARE:
             # Avoid asking always the same question at the first iteration.
             if (program, argument, current_environment_state) in questions_to_avoid:
                 continue
+
+            # Compute the self-expectation if the model is able to do so.
+            costs_exp = 10000
+            Y_exp = 0
+            if self.recourse_model.expectation is not None:
+                _, costs_exp, Y_exp, _, _ = self.recourse_model._compute_self_expectation(
+                    pd.DataFrame.from_records([current_environment_state.copy()]),
+                    self.recourse_model.expectation,
+                    pd.DataFrame.from_records([env.weights.copy()])
+                )
             
             mcts_validation = MCTSWeights(
                 env, self.recourse_model.policy,
+                minimum_cost= costs_exp if Y_exp > 0 else 10000,
                 **self.mcts_config
             )
-            mcts_validation.exploration = True
+            mcts_validation.exploration = False
             mcts_validation.number_of_simulations = 5
 
             trace, _, _ = mcts_validation.sample_intervention(deterministic_actions=[[program_index, argument_index]])

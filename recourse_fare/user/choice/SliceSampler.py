@@ -65,7 +65,7 @@ class SliceSampler:
                     break
             assert best_action_env != -1
 
-            md = np.array([-self.temperature * compute_intervention_cost(env, current_env, intervention, w) for a, k, intervention, current_env, _ in choices])
+            md = np.array([-self.temperature * compute_intervention_cost(env, current_env, intervention, w)[0] for a, k, intervention, current_env, _ in choices])
             md = md - md.max()
             md = [np.exp(m) for m in md]
             total_cost = np.sum(md)
