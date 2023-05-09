@@ -236,11 +236,15 @@ class InteractiveFARE:
         # If we did not find enough interventions, we return an empty choice set
         if len(potential_set) < self.choice_set_size:
             return []
-    
+
         choices = backtrack_eus(current_features, potential_set, self.choice_set_size, 
                                 self.choice_generator, self.noiseless_user, self.sampler,
                                 asked_actions, [], [], random_choice_set=self.random_choice_set,
                                 verbose=self.verbose)
+        
+        # Fix small corner case.
+        if choices is None:
+            choices = []
         
         # We did not find enough combinations to make a choice set
         # therefore avoid asking this question.
