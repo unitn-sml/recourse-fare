@@ -169,9 +169,9 @@ class WFARE(FARE):
         for i in tqdm(range(len(X)),  desc="Eval FARE", disable=not verbose):
 
             # Compute the self-expectation
-            costs_exp = 1000
+            costs_exp = 10000
             Y_exp = 0
-            if not skip_expectation_step:
+            if not skip_expectation_step and self.expectation is not None:
                 df_exp, costs_exp, Y_exp, trace_exp, root_node_exp = self._compute_self_expectation(
                     X.iloc[[i]], self.expectation, W.iloc[[i]] 
                 )

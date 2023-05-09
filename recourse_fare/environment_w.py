@@ -120,6 +120,11 @@ class EnvironmentWeights(Environment):
 
                 if self.can_be_called(prog_idx, args_idx):
                     current_average_cost.append(self.get_cost(prog_idx, args_idx))
+                
+                    # If the argument is a string, it means it is a categorical, so every
+                    # change will have the same cost (1)
+                    if isinstance(argument, str):
+                        break
 
             lists_of_costs.append(np.mean(current_average_cost) if len(current_average_cost) > 0 else -1)
         
