@@ -116,7 +116,7 @@ class EnvironmentWeights(Environment):
             for argument in available_args:
 
                 prog_idx = self.prog_to_idx.get(program)
-                args_idx = self.inverse_complete_arguments.get(argument)
+                args_idx = self.inverse_complete_arguments.get(argument).get(program, None)
 
                 if self.can_be_called(prog_idx, args_idx):
                     current_average_cost.append(self.get_cost(prog_idx, args_idx))

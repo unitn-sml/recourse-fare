@@ -35,9 +35,17 @@ class Environment():
         self.tasks_list = []
 
         self.arguments = arguments
-        self.complete_arguments = sum([v for k, v in self.arguments.items()], [])
-        self.complete_arguments = {idx: v for idx, v in enumerate(self.complete_arguments)}
-        self.inverse_complete_arguments = {v: idx for idx, v in self.complete_arguments.items()}
+        complete_arguments_tmp = [(k, val) for k, v in self.arguments.items() for val in v]
+        self.complete_arguments = {idx: v for idx, (k, v) in enumerate(complete_arguments_tmp)}
+
+        self.inverse_complete_arguments = {}
+        
+        for idx, (k, v) in enumerate(complete_arguments_tmp):
+            for p, p_info in self.programs_library.items():
+                if v not in self.inverse_complete_arguments:
+                    self.inverse_complete_arguments[v] = {}
+                if p_info["args"] == k:
+                    self.inverse_complete_arguments[v].update({p: idx})
 
         if custom_tensorboard_metrics is None:
             custom_tensorboard_metrics = {}
@@ -153,6 +161,10 @@ class Environment():
         return np.concatenate(mask, axis=None)
 
     def can_be_called(self, program_index, args_index):
+
+        if args_index == None:
+            return False
+
         program = self.get_program_from_index(program_index)
         args = self.complete_arguments.get(args_index)
 
@@ -206,7 +218,7 @@ class Environment():
                 function_args = self.arguments.get(self.programs_library.get(precondition).get("args"))
                 for arg in function_args:
                     prog_idx = self.prog_to_idx.get(precondition, None)
-                    args_idx = self.inverse_complete_arguments.get(arg, None)
+                    args_idx = self.inverse_complete_arguments.get(arg).get(precondition)
                     assert prog_idx is not None and args_idx is not None
                     if self.can_be_called(prog_idx, args_idx):
                         current_actions.append([precondition, arg, prog_idx, args_idx])

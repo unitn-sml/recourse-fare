@@ -33,7 +33,8 @@ def compute_intervention_cost(env: EnvironmentWeights, env_state: dict, interven
         for action, value in intervention:
             prog_idx = env.prog_to_idx.get(action)
             if bin_argument:
-                value_idx = env.inverse_complete_arguments.get(value)
+                value_idx = env.inverse_complete_arguments.get(value).get(action)
+                assert value_idx is not None, (action, value)
                 intervention_cost += env.get_cost(prog_idx, value_idx)
             else:
                 intervention_cost += env.get_cost_raw(prog_idx, value)

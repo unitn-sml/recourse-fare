@@ -11,8 +11,8 @@ class MovingAverageStatistics():
         self.maximum_level = 1
 
         self.task_average_reward = 0
-        self.task_average_cost = 0
-        self.task_average_length = 0
+        self.task_average_cost = []
+        self.task_average_length = []
         self.task_stats_update = 0
 
     def print_statistics(self, string_out=False):
@@ -42,11 +42,18 @@ class MovingAverageStatistics():
           reward: the reward obtained at the end of the task
           rewards:
         """
+        self.task_average_cost = []
+        self.task_average_length = []
+
         # Update task average reward
         for reward, cost, length in zip(rewards, costs, lengths):
             # all non-zero rewards are considered to be 1.0 in the curriculum scheduler
             reward = 1.0 if reward > 0.0 else 0.0
             self.task_average_reward = self.moving_average*self.task_average_reward + (1-self.moving_average)*reward
     
-            self.task_average_cost = self.moving_average*self.task_average_cost + (1-self.moving_average)*cost
-            self.task_average_length = self.moving_average*self.task_average_length + (1-self.moving_average)*length
+            if reward > 0:
+                self.task_average_cost.append(cost)
+                self.task_average_length.append(lengths)
+        
+        self.task_average_cost = np.mean(self.task_average_cost)
+        self.task_average_length = np.mean(self.task_average_length)
