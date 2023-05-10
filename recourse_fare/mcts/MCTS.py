@@ -116,6 +116,8 @@ class MCTS:
                     if not self.env.can_be_called(prog_index, arg_index):
                         continue
 
+                    child_cost = self.env.get_cost(prog_index, arg_index)
+
                     new_child = MCTSNode({
                         "parent": node,
                         "childs": [],
@@ -134,7 +136,9 @@ class MCTS:
                         "args": self.env.complete_arguments.get(arg_index),
                         "args_index": arg_index,
                         "depth": depth + 1,
-                        "program_name": self.env.get_program_from_index(prog_index)
+                        "program_name": self.env.get_program_from_index(prog_index),
+                        "single_action_cost": child_cost,
+                        "cost": node.cost+child_cost
                     })
 
                     # Add the new node in a temporary array
@@ -387,7 +391,7 @@ class MCTS:
                 q_val_action += action_level_closeness
                 
                 # Add a penalty based on the children cost
-                q_val_action += self.action_cost_coeff * np.exp(-self.env.get_cost(child.program_from_parent_index, child.args_index))
+                q_val_action += self.action_cost_coeff * np.exp(-child.single_action_cost)
 
                 if child.program_from_parent_index in repeated_actions:
                     q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))

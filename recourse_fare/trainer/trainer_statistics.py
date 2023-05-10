@@ -11,8 +11,8 @@ class MovingAverageStatistics():
         self.maximum_level = 1
 
         self.task_average_reward = 0
-        self.task_average_cost = []
-        self.task_average_length = []
+        self.task_average_cost = 0
+        self.task_average_length = 0
         self.task_stats_update = 0
 
     def print_statistics(self, string_out=False):
@@ -42,8 +42,8 @@ class MovingAverageStatistics():
           reward: the reward obtained at the end of the task
           rewards:
         """
-        self.task_average_cost = []
-        self.task_average_length = []
+        task_average_cost_tmp = []
+        task_average_length_tmp = []
 
         # Update task average reward
         for reward, cost, length in zip(rewards, costs, lengths):
@@ -52,8 +52,8 @@ class MovingAverageStatistics():
             self.task_average_reward = self.moving_average*self.task_average_reward + (1-self.moving_average)*reward
     
             if reward > 0:
-                self.task_average_cost.append(cost)
-                self.task_average_length.append(lengths)
+                task_average_cost_tmp.append(cost)
+                task_average_length_tmp.append(lengths)
         
-        self.task_average_cost = np.mean(self.task_average_cost)
-        self.task_average_length = np.mean(self.task_average_length)
+        self.task_average_cost = np.mean(task_average_cost_tmp) if len(task_average_cost_tmp) > 0 else 0
+        self.task_average_length = np.mean(task_average_length_tmp) if len(task_average_length_tmp) > 0 else 0
