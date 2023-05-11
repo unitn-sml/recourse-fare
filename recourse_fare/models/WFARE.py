@@ -37,6 +37,7 @@ class WFARE(FARE):
             policy_config.get("encoding_dim"),
             policy_config.get("hidden_size"),
             num_programs,
+            learning_rate=policy_config.get("learning_rate", 1e-3),
             **additional_arguments_from_env
         )
 
