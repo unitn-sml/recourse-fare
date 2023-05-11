@@ -1,61 +1,67 @@
-from ..utils.functions import import_dyn_class, get_cost_from_env, isfloat
+from ..models.EFARE import EFARE
+from ..models.WFARE import WFARE
 
-from ..automa.efare import EFAREModel
-from ..models.FARE import FARE
+from ..automa.wefare import WEFAREModel
 
-from tqdm.auto import tqdm
+from ..utils.functions import import_dyn_class, get_cost_from_env, compute_intervention_cost, isfloat
+from ..environment_w import EnvironmentWeights
+
+from tqdm import tqdm
 
 import pandas as pd
-
+import numpy as np
 import sklearn
 from sklearn.tree import _tree
 
-class EFARE():
+class WEFARE(EFARE):
 
-    def __init__(self, fare_model: FARE, preprocessor=None) -> None:
-
-        # Black-box model we want to use
-        self.fare_model = fare_model
-
-        # The EFARE model we want to train
-        self.efare_model = EFAREModel()
-        self.efare_preprocessor = preprocessor
-
-    def load(self, load_path:str = "."):
-        with open(load_path, "rb") as f:
-            import dill as pickle
-            self.efare_model.automa = pickle.load(f)
-
-    def save(self, save_path:str="."):
-        with open(save_path, "wb") as f:
-            import dill as pickle
-            pickle.dump(self.efare_model.automa, f)
-    
-    def fit(self, X, verbose=True):
-
-        _,Y,_,_, root_nodes = self.fare_model.predict(X, full_output=True, verbose=verbose)
-
-        for reward,root_node in zip(Y,root_nodes):
-            if reward > 0:
-                self.efare_model.add(root_node)
+    def __init__(self, fare_model: WFARE) -> None:
+        super().__init__(fare_model, None)
         
-        self.efare_model.compute(self.efare_preprocessor)
+        self.efare_model = WEFAREModel()
     
-    def predict(self, X, full_output=False, verbose=True):
+    def fit(self, X, W, G=None, verbose=True):
+
+        _,Y,_,_, root_nodes = self.fare_model.predict(X, W, G, full_output=True, verbose=verbose)
+
+        X_train = X.to_dict("records")
+        W_train = W.to_dict("records")
+        
+        for reward, feature, weights, root_node in zip(Y, X_train, W_train, root_nodes):
+
+            env: EnvironmentWeights = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
+                features = feature.copy(),
+                weights = weights.copy(),
+                model = self.fare_model.model,
+                **self.fare_model.environment_config.get("additional_parameters"),
+            )
+             
+            if reward > 0:
+                self.efare_model.add(root_node, weights, env)
+        
+        self.efare_model.compute()
+    
+    def predict(self, X, W, G=None, full_output=False, verbose=True):
 
         X = X.to_dict(orient='records')
+        W = W.to_dict(orient='records')
 
         counterfactuals = []
         Y = []
         traces = []
         costs = []
         rules = []
-        for i in tqdm(range(len(X)), desc="Eval EFARE", disable=not verbose):
+        for i in tqdm(range(len(X)), desc="Eval W-EFARE", disable=not verbose):
 
             env_validation = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
                 features=X[i].copy(),
+                weights=W[i].copy(),
                 model=self.fare_model.model,
                 **self.fare_model.environment_config.get("additional_parameters"))
+            
+            # If we have the graph structure, override the preset one. 
+            if G is not None:
+                env_validation.structural_weights.set_scm_structure(G[i])
 
             env_validation.start_task()
 
@@ -97,21 +103,30 @@ class EFARE():
                 next_op = actions(None)
                 rules.append(["True"])
             else:
+
+                #### COMPUTE MEAN ACTION COSTS
+                 # Compute the action costs and save them
+                action_costs = {k : [] for k in env.programs_library.keys() if k != "STOP" and k != "INTERVENE"}
+                for a in env.get_current_actions():
+                    intervention = [(a[0], a[1])]
+                    
+                    cost, _ = compute_intervention_cost(
+                        env, env.get_state().copy(), intervention=intervention
+                    )
+
+                    if a[0] in action_costs:
+                        action_costs[a[0]].append(cost)
                 
-                # We can use get_feature_names_out only if we have sklearn > 1.0.0
-                if self.efare_preprocessor:
-                    next_state = self.efare_preprocessor.transform(pd.DataFrame.from_records([env.get_state()]))
-                else:
-                    next_state = pd.DataFrame.from_records([env.get_state()])
+                action_costs = {k: np.mean(v) if len(v)> 0 else -1 for k, v in action_costs.items()}
+                action_costs = {f"{k}_w": v for k,v in action_costs.items()}
+                
+                next_state = pd.DataFrame.from_records([{**env.get_state().copy(), **action_costs}])
 
                 if sklearn.__version__ >= "1.0.0":
-                    if self.efare_preprocessor:
-                        transformed_columns = self.efare_preprocessor.get_feature_names_out(pd.DataFrame.from_records([env.get_state()]).columns)
-                        next_state = pd.DataFrame(next_state, columns=transformed_columns)
                     rules.append(self.extract_rule_from_tree(actions, next_state))
                 else:
                     raise UserWarning("EFARE rules extraction is disabled. Use a scikit-learn version greater than 1.0.0.")
-                
+
                 next_op = actions.predict(
                     next_state
                 )[0]
@@ -123,7 +138,7 @@ class EFARE():
                     args = int(args)
                 elif isfloat(args):
                     args = float(args)
-                
+
                 action_list.append((action_name, args))
 
                 precondition_satisfied = True
@@ -146,25 +161,29 @@ class EFARE():
                     args = int(args)
                 elif isfloat(args):
                     args = float(args)
-                
+
                 action_list.append((action_name, args))
 
                 cost += get_cost_from_env(env, action_name, args)
 
                 return [[True, env.features.copy(), cost, action_list, rules]]
-    
+
     def extract_rule_from_tree(self, model, instance):
+
+        instance_new_columns = model.named_steps.get("preprocessor").get_feature_names_out(instance.columns)
+        instance_new = pd.DataFrame(model.named_steps.get("preprocessor").transform(instance), columns=instance_new_columns)
+        model = model.named_steps.get("model")
 
         feature = model.tree_.feature
         threshold = model.tree_.threshold
 
         feature_name = [
-            instance.columns[i] if i != _tree.TREE_UNDEFINED else "undefined!"
+            instance_new.columns[i] if i != _tree.TREE_UNDEFINED else "undefined!"
             for i in feature
         ]
 
-        node_indicator = model.decision_path(instance)
-        leaf_id = model.apply(instance)
+        node_indicator = model.decision_path(instance_new.values)
+        leaf_id = model.apply(instance_new.values)
 
         sample_id = 0
         # obtain ids of the nodes `sample_id` goes through, i.e., row `sample_id`
@@ -181,12 +200,12 @@ class EFARE():
                 continue
 
             # check if value of the split feature for sample 0 is below threshold
-            if instance[feature_name[node_id]].values[0] <= threshold[node_id]:
+            if instance_new[feature_name[node_id]].values[0] <= threshold[node_id]:
                 threshold_sign = "<="
             else:
                 threshold_sign = ">"
             
-            inst_value = "True" if instance[feature_name[node_id]].values[0] else "False"
+            inst_value = "True" if instance_new[feature_name[node_id]].values[0] else "False"
             #negation = "" if instance[feature_name[node_id]].values[0] else "not"
 
             rules_detected.append(

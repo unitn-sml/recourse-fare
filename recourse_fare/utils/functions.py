@@ -328,3 +328,10 @@ def compute_average_regret(full_potential_actions, choice_set, particles, user):
     user.features.estimated_graph.update_weights(w)
 
     return regret
+
+def isfloat(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
