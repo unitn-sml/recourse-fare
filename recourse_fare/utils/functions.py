@@ -95,15 +95,15 @@ def compute_q_value(node, qvalue_temperature):
         q_val_action = 0.0
     return q_val_action
 
-def get_cost_from_env(env, action_index, args_index, env_state = None):
+def get_cost_from_env(env, action, args, env_state = None):
 
     tmp_state = None
     if env_state is not None:
         tmp_state = env.get_state()
         env.reset_to_state(env_state)
         
-    action_index = env.prog_to_idx.get(action_index)
-    args_index = env.inverse_complete_arguments.get(args_index)
+    action_index = env.prog_to_idx.get(action)
+    args_index = env.inverse_complete_arguments.get(args).get(action)
 
     cost = env.get_cost(action_index, args_index)
 

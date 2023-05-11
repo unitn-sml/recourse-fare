@@ -10,6 +10,13 @@ import pandas as pd
 import sklearn
 from sklearn.tree import _tree
 
+def isfloat(num):
+    try:
+        float(num)
+        return True
+    except ValueError:
+        return False
+
 class EFARE():
 
     def __init__(self, fare_model: FARE, preprocessor=None) -> None:
@@ -53,8 +60,8 @@ class EFARE():
         for i in tqdm(range(len(X)), desc="Eval EFARE", disable=not verbose):
 
             env_validation = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
-                X[i].copy(),
-                self.fare_model.model,
+                features=X[i].copy(),
+                model=self.fare_model.model,
                 **self.fare_model.environment_config.get("additional_parameters"))
 
             env_validation.start_task()
@@ -119,10 +126,12 @@ class EFARE():
             if next_op != "STOP(0)":
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
 
-                action_list.append((action_name, args))
-
                 if args.isnumeric():
                     args = int(args)
+                elif isfloat(args):
+                    args = float(args)
+                
+                action_list.append((action_name, args))
 
                 precondition_satisfied = True
                 if not env.prog_to_precondition.get(action_name)(args):
@@ -131,7 +140,7 @@ class EFARE():
                 if not precondition_satisfied:
                     return [[False, env.features.copy(), cost, action_list, rules]]
 
-                cost += get_cost_from_env(env, action_name, str(args))
+                cost += get_cost_from_env(env, action_name, args)
 
                 env.act(action_name, args)
 
@@ -140,12 +149,14 @@ class EFARE():
 
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
 
-                action_list.append((action_name, args))
-
                 if args.isnumeric():
                     args = int(args)
+                elif isfloat(args):
+                    args = float(args)
+                
+                action_list.append((action_name, args))
 
-                cost += get_cost_from_env(env, action_name, str(args))
+                cost += get_cost_from_env(env, action_name, args)
 
                 return [[True, env.features.copy(), cost, action_list, rules]]
     
