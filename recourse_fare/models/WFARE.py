@@ -144,7 +144,8 @@ class WFARE(FARE):
     
     def predict(self, X, W, G: dict=None, full_output :bool=False,
                 verbose :bool=True, agent_only :bool=False,
-                mcts_only :bool=False, skip_expectation_step:bool=False):
+                mcts_only :bool=False, skip_expectation_step:bool=False,
+                mcts_steps: int=5):
         """Generate counterfactual interventions given FARE.
 
         :param X: the dataset
@@ -206,7 +207,7 @@ class WFARE(FARE):
                 mcts_validation.dir_epsilon = 1.0
             else:
                 mcts_validation.exploration = False
-                mcts_validation.number_of_simulations = 5
+                mcts_validation.number_of_simulations = mcts_steps
 
             # Sample an execution trace with mcts using policy as a prior
             trace, root_node, _ = mcts_validation.sample_intervention()
@@ -216,7 +217,7 @@ class WFARE(FARE):
 
             # If we get a positive result with the expected value
             # at a lower cost, then we use it instead.
-            if costs_exp < cost and Y_exp == 1:
+            if (costs_exp < cost and Y_exp == 1) or (Y_exp == 1 and task_reward <= 0):
                 costs.append(costs_exp)
                 traces += trace_exp
                 root_nodes += root_node_exp

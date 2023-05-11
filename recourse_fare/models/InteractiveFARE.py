@@ -58,6 +58,9 @@ class InteractiveFARE:
         W_updated = []
         failed_user_estimation = []
 
+        # Best interventions so far:
+        current_best_interventions = {}
+
         for i in tqdm(range(len(X)), desc="Predict: "):
 
             # Reset constraints for the new user
@@ -74,6 +77,7 @@ class InteractiveFARE:
 
             # Weights we are going to estimate
             estimated_weights = {k:v for k,v in zip(W_dict[i].keys(), expected_value_mixture)}
+            estimated_weights_initial = pd.DataFrame.from_records([estimated_weights.copy()])
             
             # Build the environment
             env: EnvironmentWeights = import_dyn_class(self.environment_config.get("class_name"))(
@@ -89,6 +93,25 @@ class InteractiveFARE:
             # Here we save those actions which enable recourse
             # at some point in the interaction with the user.
             questions_to_avoid_because_succesfull = []
+
+            # We add the best intervention found by using only the expected weights
+            # This is the baseline, if we are not able to find something which achieve recourse,
+            # we return the previous one.
+            df_candidate, Y_candidate, trace_candidate, cost_candidate, root_node_candidate = self.recourse_model.predict(
+                X.iloc[[i]],
+                estimated_weights_initial,
+                None,
+                full_output = True,
+                verbose = False)
+
+            # We add the initial solution to the 
+            current_best_interventions[i] = {
+                "cf": df_candidate,
+                "recourse": Y_candidate,
+                "intervention": trace_candidate,
+                "cost_candidate": cost_candidate,
+                "root_node_candidate": root_node_candidate,
+            }
 
             # We start asking N questions to the user.
             for question in tqdm(range(self.questions), desc=f"Eliciting user {i}: "):
@@ -184,6 +207,50 @@ class InteractiveFARE:
                         questions_to_avoid_because_succesfull.append(
                             (best_action, best_value, best_previous_state.copy())
                         )
+                    
+                    # Update the current best intervention for this user
+                    df_candidate, Y_candidate, trace_candidate, cost_candidate, root_node_candidate = self.recourse_model.predict(
+                        X.iloc[[i]],
+                        pd.DataFrame.from_records([estimated_weights]),
+                        None,
+                        full_output = True,
+                        verbose = False)
+                    
+                    # Start checking only if we reached recourse
+                    if Y_candidate[0] > 0:
+
+                        # If the current best does not reach recourse, we immediately
+                        # use the candidate instead.
+                        if current_best_interventions.get(i).get("recourse")[0] == 0:
+
+                            current_best_interventions[i] = {
+                                "cf": df_candidate,
+                                "recourse": Y_candidate,
+                                "intervention": trace_candidate,
+                                "cost_candidate": cost_candidate,
+                                "root_node_candidate": root_node_candidate,
+                                "w": estimated_weights.copy()
+                            }
+                        else:
+                            # Best trace so far
+                            trace_best_so_far = current_best_interventions.get(i).get("intervention")
+                            # Recompute the cost of the best intervention so far with the current weights
+                            costs_best_so_far, Y = self.recourse_model.evaluate_trace_costs(trace_best_so_far,
+                                                                                            X,
+                                                                                            pd.DataFrame.from_records([estimated_weights]))
+                            # If the best so far has a higher cost with respect to the current weights,
+                            # then change it.
+                            if costs_best_so_far[0] > cost_candidate[0]:
+
+                                current_best_interventions[i] = {
+                                    "cf": df_candidate,
+                                    "recourse": Y_candidate,
+                                    "intervention": trace_candidate,
+                                    "cost_candidate": cost_candidate,
+                                    "root_node_candidate": root_node_candidate,
+                                    "w": estimated_weights.copy()
+                                }
+                        
 
             # Append the result if needed
             failed_user_estimation.append(1 if failed_user else 0)
@@ -191,18 +258,30 @@ class InteractiveFARE:
             # We append the estimated weights for this user
             W_updated.append(estimated_weights.copy())
         
-        # Once we have the estimated weights, we predict the counterfactuals using the
-        # weight aware model.
+
+        cf = pd.concat([c.get("cf") for k, c in current_best_interventions.items()], axis=0)
+        recourse = [c.get("recourse")[0] for _, c in current_best_interventions.items()]
+        interventions = [c.get("intervention")[0] for _, c in current_best_interventions.items()]
+        costs = [c.get("cost_candidate")[0] for _, c in current_best_interventions.items()]
+        root_nodes = [c.get("root_node_candidate")[0] for _, c in current_best_interventions.items()]
+
         if full_output:
-            return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), None,
-                full_output=full_output, **kwargs
-            ), pd.DataFrame.from_records(W_updated), failed_user_estimation
+            return (cf, recourse, interventions, costs, root_nodes), pd.DataFrame.from_records(W_updated), failed_user_estimation
         else:
-            return self.recourse_model.predict(
-                X, pd.DataFrame.from_records(W_updated), None,
-                **kwargs
-            )
+            return cf, recourse, interventions, costs, root_nodes
+
+        # Once we have the estimated weights, we predict the counterfactuals using the
+        # weight aware model. We just return the best solution so far.
+        # if full_output:
+        #     return self.recourse_model.predict(
+        #         X, pd.DataFrame.from_records(W_updated), None,
+        #         full_output=full_output, **kwargs
+        #     ), pd.DataFrame.from_records(W_updated), failed_user_estimation
+        # else:
+        #     return self.recourse_model.predict(
+        #         X, pd.DataFrame.from_records(W_updated), None,
+        #         **kwargs
+        #     )
 
     def _assert_elicitation_state(self, choice_set, question):
 
