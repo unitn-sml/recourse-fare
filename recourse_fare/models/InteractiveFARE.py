@@ -1,8 +1,8 @@
 from tqdm import tqdm
 from ..utils.functions import import_dyn_class, backtrack_eus
 from ..environment_w import EnvironmentWeights
-from ..mcts import MCTSWeights
-from ..models import WFARE
+from ..mcts import MCTSWeights, MCTS
+from ..models import WFARE, WFAREFiner
 from ..user.user import User, NoiselessUser, LogisticNoiseUser
 from ..user.choice import ChoiceGenerator, SliceSamplerNoiseless, SliceSamplerLogistic
 from ..utils.Mixture import MixtureModel
@@ -358,7 +358,7 @@ class InteractiveFARE:
                     self.recourse_model.expectation,
                     pd.DataFrame.from_records([env.weights.copy()])
                 )
-            
+                
             mcts_validation = MCTSWeights(
                 env, self.recourse_model.policy,
                 minimum_cost= costs_exp if Y_exp > 0 else 10000,
@@ -368,6 +368,19 @@ class InteractiveFARE:
             mcts_validation.number_of_simulations = 5
 
             trace, _, _ = mcts_validation.sample_intervention(deterministic_actions=[[program_index, argument_index]])
+
+            # Sample the same intervention from FARE if this is a finetuned model.
+            if isinstance(self.recourse_model, WFAREFiner) and trace.task_reward < 0:
+                
+                mcts_validation = MCTSWeights(
+                    env, self.recourse_model.fare_model.policy,
+                    minimum_cost= 10000,
+                    **self.mcts_config
+                )
+                mcts_validation.exploration = False
+                mcts_validation.number_of_simulations = 5
+
+                trace, _, _ = mcts_validation.sample_intervention(deterministic_actions=[[program_index, argument_index]])
 
             if trace.task_reward > 0:
                 actions_found = [env.get_program_from_index(idx) for idx

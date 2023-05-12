@@ -18,9 +18,10 @@ class WFARE(FARE):
 
     def __init__(self, model, policy_config, environment_config, mcts_config, 
                  batch_size=50, training_buffer_size=200, validation_steps=10,
-                 expectation=None) -> None:
+                 expectation=None, sample_from_hard_examples=0.0) -> None:
         
         self.expectation = expectation
+        self.sample_from_hard_examples = sample_from_hard_examples
 
         super().__init__(model, policy_config, environment_config, mcts_config, batch_size, training_buffer_size, validation_steps)
 
@@ -41,7 +42,7 @@ class WFARE(FARE):
             **additional_arguments_from_env
         )
 
-    def fit(self, X, W, max_iter=1000, verbose=True,
+    def fit(self, X, W, max_iter=1000, X_hard=None, W_hard=None, verbose=True,
             tensorboard=None):
 
         # Initialize the various objects needed to train FARE
@@ -67,8 +68,15 @@ class WFARE(FARE):
                 )
 
                 # Extract both features and the corresponding weights
-                features = X.sample(1)
+                features = X.sample(1) 
                 weigths = W.iloc[[features.index[0]]]
+                
+                # If we have provide "hard" examples, sample from them with
+                # a small probability. It should improve model performances.
+                if W_hard is not None and X_hard is not None:
+                    if np.random.rand() <= self.sample_from_hard_examples:
+                        features = X_hard.sample(1) 
+                        weigths = W_hard.iloc[[features.index[0]]]       
         
                 # Compute the self-expectation
                 costs_exp = 10000
