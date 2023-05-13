@@ -359,7 +359,7 @@ def run_automaton(automaton, env, features, deterministic_actions=None, randomiz
                                         env.max_intervention_depth, 0, [], [],
                                         deterministic_actions=deterministic_actions,
                                         randomize=randomize)                    
-    succesfull_trace = env.prog_to_postcondition(None, env.features.copy()) and results[0]
+    succesfull_trace = env.prog_to_postcondition(None, env.features.copy()) and results[0][0]
     intervention_prog = [v[0] for v in results[0][3][:-1]]
     intervention_args = [v[1] for v in results[0][3][:-1]]
 
