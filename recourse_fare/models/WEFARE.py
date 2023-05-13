@@ -223,3 +223,33 @@ class WEFARE(EFARE):
             )
 
         return rules_detected
+
+    def evaluate_trace_costs(self, traces: list, X, W, G: dict=None, **kwargs):
+
+        X_dict = X.to_dict(orient='records')
+        W_dict = W.to_dict(orient='records')
+
+        costs = []
+        recourse = []
+
+        for idx, t in enumerate(traces):
+
+            # Build the environment
+            env = import_dyn_class(self.environment_config.get("class_name"))(
+                X_dict[idx].copy(),
+                W_dict[idx].copy(),
+                self.model,
+                **self.environment_config.get("additional_parameters"))
+            
+            # Set random type
+            if G:
+                env.structural_weights.set_scm_structure(G[idx])
+            
+            # Compute the intervention costs
+            t_cost, has_recourse = compute_intervention_cost(
+                env, X_dict[idx].copy(), t, custom_weights=W_dict[idx].copy(), **kwargs
+            )
+            costs.append(t_cost)
+            recourse.append(has_recourse)
+        
+        return costs, recourse
