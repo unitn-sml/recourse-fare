@@ -5,7 +5,7 @@ from sklearn.svm import SVC
 from sklearn.metrics import classification_report
 
 from recourse_fare.models.WFARE import WFARE
-from recourse_fare.models.InteractiveFARE import InteractiveFARE
+from recourse_fare.models.PEAR import PEAR
 
 from recourse_fare.example.wfare.adult_scm import AdultSCM
 from recourse_fare.user.user import NoiselessUser
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     user = NoiselessUser()
 
     # Create and interactive FARE object and predict the test instances
-    interactive = InteractiveFARE(model, user, keys_weights, questions=5, verbose=True)
+    interactive = PEAR(model, user, keys_weights, questions=5, verbose=True)
     (counterfactuals, Y, traces, costs, _), W_updated, failed_users = interactive.predict(X_test[0:2], W_test[0:2], full_output=True)
 
     print(counterfactuals)

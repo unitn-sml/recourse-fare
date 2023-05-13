@@ -5,7 +5,7 @@ import random
 from sklearn.model_selection import train_test_split
 
 from recourse_fare.example.wfare.adult_scm import AdultSCM
-from recourse_fare.models.InteractiveFARE import InteractiveFARE
+from recourse_fare.models.PEAR import PEAR
 
 from recourse_fare.example.wfare.adult_scm import AdultSCM
 from recourse_fare.user.user import NoiselessUser, LogisticNoiseUser
@@ -85,7 +85,7 @@ if __name__ == "__main__":
     )
 
     # Create and interactive FARE object and predict the test instances
-    interactive = InteractiveFARE(recourse_method, user, mixture, keys_weights,
+    interactive = PEAR(recourse_method, user, mixture, keys_weights,
                                   questions=int(args.questions), mcmc_steps=args.mcmc_steps,
                                   verbose=args.verbose)
 

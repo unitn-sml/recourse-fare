@@ -2,7 +2,7 @@ from tqdm import tqdm
 from ..utils.functions import import_dyn_class, backtrack_eus
 from ..environment_w import EnvironmentWeights
 from ..mcts import MCTSWeights, MCTS
-from ..models import WFARE, WFAREFiner
+from . import WFARE, WFAREFiner
 from ..user.user import User, NoiselessUser, LogisticNoiseUser
 from ..user.choice import ChoiceGenerator, SliceSamplerNoiseless, SliceSamplerLogistic
 from ..utils.Mixture import MixtureModel
@@ -10,7 +10,7 @@ from ..utils.Mixture import MixtureModel
 import numpy as np
 import pandas as pd
 
-class InteractiveFARE:
+class PEAR:
 
     def __init__(self, recourse_model: WFARE, user: User, mixture: MixtureModel, features: list,
                  questions: int=10, choice_set_size: int=2,
