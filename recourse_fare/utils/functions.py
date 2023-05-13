@@ -328,10 +328,74 @@ def compute_average_regret(full_potential_actions, choice_set, particles, user):
     user.features.estimated_graph.update_weights(w)
 
     return regret
+    
+def convert_string_to_numeric(value):
 
-def isfloat(num):
-    try:
-        float(num)
-        return True
-    except ValueError:
-        return False
+    if type(value) is str:
+
+        is_negative = value.startswith("-")
+
+        if is_negative:
+            value = value.replace("-","", 1)
+        
+        if value.isnumeric():
+            return -int(value) if is_negative else int(value)
+        elif value.replace(".", "", 1).isnumeric():
+            return -float(value) if is_negative else float(value)
+        else:
+            if is_negative:
+                value = "-"+value
+    
+    return value
+
+def run_automaton(automaton, env, features, deterministic_actions=None, randomize=False):
+
+    best_cost = np.inf
+    best_intervention = None
+    best_intervention_prog = None
+    best_intervention_args = None
+
+    results = automaton.validation_recursive_tree(automaton.efare_model.automa, env, "INTERVENE(0)", 
+                                        env.max_intervention_depth, 0, [], [],
+                                        deterministic_actions=deterministic_actions,
+                                        randomize=randomize)                    
+    succesfull_trace = env.prog_to_postcondition(None, env.features.copy()) and results[0]
+    intervention_prog = [v[0] for v in results[0][3][:-1]]
+    intervention_args = [v[1] for v in results[0][3][:-1]]
+
+    intervention = results[0][3]
+    cost, _ = compute_intervention_cost(
+        env,
+        features.copy(),
+        intervention
+    )
+
+    # Get only the best intervention
+    if succesfull_trace:
+        if cost < best_cost:
+            best_cost = cost
+            best_intervention = intervention
+            best_intervention_prog = intervention_prog
+            best_intervention_args = intervention_args
+
+    return best_cost, best_intervention, best_intervention_prog, best_intervention_args
+
+
+def randomize_actions(actions, best_action, env):
+
+    potential_actions = [f"{a}({v})" for a,v, _, _ in env.get_current_actions()] + ["STOP(0)"]
+    
+    if len(potential_actions) == 0:
+        return best_action
+
+    probab = np.zeros(len(potential_actions))
+
+    if best_action in potential_actions:
+        probab[potential_actions.index(best_action)] = 1
+        probab = 0.6*probab + 0.4*np.random.dirichlet([0.05 for _ in probab])
+    else:
+        probab = np.random.dirichlet([0.05 for _ in probab])
+
+    idx = np.random.choice(list(range(len(potential_actions))), p=probab)
+    
+    return potential_actions[idx]

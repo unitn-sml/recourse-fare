@@ -1,4 +1,4 @@
-from ..utils.functions import import_dyn_class, get_cost_from_env, isfloat
+from ..utils.functions import import_dyn_class, get_cost_from_env, convert_string_to_numeric
 
 from ..automa.efare import EFAREModel
 from ..models.FARE import FARE
@@ -119,10 +119,7 @@ class EFARE():
             if next_op != "STOP(0)":
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
 
-                if args.isnumeric():
-                    args = int(args)
-                elif isfloat(args):
-                    args = float(args)
+                args = convert_string_to_numeric(args)
                 
                 action_list.append((action_name, args))
 
@@ -142,10 +139,7 @@ class EFARE():
 
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
 
-                if args.isnumeric():
-                    args = int(args)
-                elif isfloat(args):
-                    args = float(args)
+                args = convert_string_to_numeric(args)
                 
                 action_list.append((action_name, args))
 

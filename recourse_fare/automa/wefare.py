@@ -7,7 +7,9 @@ import sklearn
 from sklearn import tree
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, KBinsDiscretizer
+
+from sklearn.compose import make_column_selector
 
 from ..utils.functions import compute_intervention_cost
 
@@ -164,9 +166,16 @@ class WEFAREModel:
         Y = data["operation"]
         data.drop(columns=["operation"], inplace=True)
 
-        columns_features = [c for c in data.columns.tolist() if not c.endswith("_w")]
+        columns_weights = data.columns.tolist()
+        columns_weights = [c for c in columns_weights if c.endswith("_w")]
+         
         cat_prepreocessor = ColumnTransformer(
-             [('categorical', OneHotEncoder(handle_unknown="ignore",sparse=False), columns_features)],
+             [('categorical',
+               OneHotEncoder(handle_unknown="ignore", sparse=False),
+               make_column_selector(dtype_include=[object, 'category'])),
+               ('scaler',
+               KBinsDiscretizer(10, strategy='uniform', encode="onehot-dense"),
+               columns_weights)],
              remainder='passthrough')
 
         pipe = Pipeline([

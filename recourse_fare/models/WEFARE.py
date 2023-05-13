@@ -3,7 +3,8 @@ from ..models.WFARE import WFARE
 
 from ..automa.wefare import WEFAREModel
 
-from ..utils.functions import import_dyn_class, get_cost_from_env, compute_intervention_cost, isfloat
+from ..utils.functions import import_dyn_class, get_cost_from_env, compute_intervention_cost, randomize_actions
+from ..utils.functions import convert_string_to_numeric
 from ..environment_w import EnvironmentWeights
 
 from tqdm import tqdm
@@ -19,6 +20,9 @@ class WEFARE(EFARE):
         super().__init__(fare_model, None)
         
         self.efare_model = WEFAREModel()
+        self.model = self.fare_model.model
+        self.environment_config = self.fare_model.environment_config
+        self.mcts_config = self.fare_model.mcts_config
     
     def fit(self, X, W, G=None, verbose=True):
 
@@ -27,13 +31,13 @@ class WEFARE(EFARE):
         X_train = X.to_dict("records")
         W_train = W.to_dict("records")
         
-        for reward, feature, weights, root_node in zip(Y, X_train, W_train, root_nodes):
+        for reward, feature, weights, root_node in tqdm(list(zip(Y, X_train, W_train, root_nodes)), desc="Building dataset W-EFARE"):
 
-            env: EnvironmentWeights = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
+            env: EnvironmentWeights = import_dyn_class(self.environment_config.get("class_name"))(
                 features = feature.copy(),
                 weights = weights.copy(),
-                model = self.fare_model.model,
-                **self.fare_model.environment_config.get("additional_parameters"),
+                model = self.model,
+                **self.environment_config.get("additional_parameters"),
             )
              
             if reward > 0:
@@ -53,11 +57,11 @@ class WEFARE(EFARE):
         rules = []
         for i in tqdm(range(len(X)), desc="Eval W-EFARE", disable=not verbose):
 
-            env_validation = import_dyn_class(self.fare_model.environment_config.get("class_name"))(
+            env_validation = import_dyn_class(self.environment_config.get("class_name"))(
                 features=X[i].copy(),
                 weights=W[i].copy(),
-                model=self.fare_model.model,
-                **self.fare_model.environment_config.get("additional_parameters"))
+                model=self.model,
+                **self.environment_config.get("additional_parameters"))
             
             # If we have the graph structure, override the preset one. 
             if G is not None:
@@ -86,7 +90,7 @@ class WEFARE(EFARE):
         else:
             return pd.DataFrame.from_records(counterfactuals)
 
-    def validation_recursive_tree(self, model, env, action, depth, cost, action_list, rules):
+    def validation_recursive_tree(self, model, env, action, depth, cost, action_list, rules, deterministic_actions=None, randomize=False):
         
         if len(model) == 0:
             # This happens in case the model is not fit
@@ -98,6 +102,9 @@ class WEFARE(EFARE):
         else:
             node_name = action.split("(")[0]
             actions = model.get(node_name)
+
+            if actions is None:
+                return self.validation_recursive_tree(model, env, "INTERVENE(0)", depth-1, cost, action_list, rules, randomize=randomize)
 
             if isinstance(actions, type(lambda x:0)):
                 next_op = actions(None)
@@ -126,18 +133,23 @@ class WEFARE(EFARE):
                     rules.append(self.extract_rule_from_tree(actions, next_state))
                 else:
                     raise UserWarning("EFARE rules extraction is disabled. Use a scikit-learn version greater than 1.0.0.")
-
+                
                 next_op = actions.predict(
                     next_state
                 )[0]
 
+                if randomize:
+                    next_op = randomize_actions(actions.classes_, next_op, env)
+
+                # Pick the first deterministic action         
+                if deterministic_actions:
+                    if depth > depth-len(deterministic_actions):
+                        next_op = f"{deterministic_actions[0][0]}({deterministic_actions[0][1]})"
+
             if next_op != "STOP(0)":
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
 
-                if args.isnumeric():
-                    args = int(args)
-                elif isfloat(args):
-                    args = float(args)
+                args = convert_string_to_numeric(args)
 
                 action_list.append((action_name, args))
 
@@ -157,10 +169,7 @@ class WEFARE(EFARE):
 
                 action_name, args = next_op.split("(")[0], next_op.split("(")[1].replace(")", "")
 
-                if args.isnumeric():
-                    args = int(args)
-                elif isfloat(args):
-                    args = float(args)
+                args = convert_string_to_numeric(args)
 
                 action_list.append((action_name, args))
 
