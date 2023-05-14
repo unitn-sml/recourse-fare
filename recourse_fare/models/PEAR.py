@@ -371,7 +371,8 @@ class PEAR:
 
             # Sample the same intervention from FARE if this is a finetuned model.
             if isinstance(self.recourse_model, WFAREFiner) and trace.task_reward < 0:
-                
+                prev_agnostic_value = env.agnostic
+                env.agnostic = True
                 mcts_validation = MCTSWeights(
                     env, self.recourse_model.fare_model.policy,
                     minimum_cost= 10000,
@@ -381,6 +382,7 @@ class PEAR:
                 mcts_validation.number_of_simulations = 5
 
                 trace, _, _ = mcts_validation.sample_intervention(deterministic_actions=[[program_index, argument_index]])
+                env.agnostic = prev_agnostic_value
 
             if trace.task_reward > 0:
                 actions_found = [env.get_program_from_index(idx) for idx
