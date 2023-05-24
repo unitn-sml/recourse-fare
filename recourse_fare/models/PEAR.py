@@ -49,7 +49,7 @@ class PEAR:
         self.user: User = user
         self.noiseless_user: NoiselessUser = NoiselessUser()
 
-    def predict(self, X, W, G: dict=None, full_output=False, batching: int=1, **kwargs):
+    def predict(self, X, W, G: dict=None, full_output=False, batching: int=1, mcts_steps: int=5, **kwargs):
 
         X_dict = X.to_dict(orient='records')
         W_dict = W.to_dict(orient='records')
@@ -102,7 +102,8 @@ class PEAR:
                 estimated_weights_initial,
                 None,
                 full_output = True,
-                verbose = False)
+                verbose = False,
+                mcts_steps = mcts_steps)
 
             # We add the initial solution to the 
             current_best_interventions[i] = {
@@ -131,7 +132,7 @@ class PEAR:
                 
                 # Generate the potential set of actions. We avoid asking the same question, if it
                 # reached recourse after.
-                potential_set = self._generate_potential_set(env, questions_to_avoid_because_succesfull)
+                potential_set = self._generate_potential_set(env, questions_to_avoid_because_succesfull, mcts_steps)
                 assert env.features == current_env_state
 
                 # Given the potential set of actions, pick the choice set maximizing EUS
@@ -214,7 +215,8 @@ class PEAR:
                         pd.DataFrame.from_records([estimated_weights]),
                         None,
                         full_output = True,
-                        verbose = False)
+                        verbose = False,
+                        mcts_steps = mcts_steps)
                     
                     # Start checking only if we reached recourse
                     if Y_candidate[0] > 0:
@@ -335,7 +337,7 @@ class PEAR:
 
         return choices
     
-    def _generate_potential_set(self, env: EnvironmentWeights, questions_to_avoid: list=[]):
+    def _generate_potential_set(self, env: EnvironmentWeights, questions_to_avoid: list=[], mcts_steps: int=5):
 
         current_environment_state = env.features.copy()
         action_choices = env.get_current_actions()
@@ -365,7 +367,7 @@ class PEAR:
                 **self.mcts_config
             )
             mcts_validation.exploration = False
-            mcts_validation.number_of_simulations = 5
+            mcts_validation.number_of_simulations = mcts_steps
 
             trace, _, _ = mcts_validation.sample_intervention(deterministic_actions=[[program_index, argument_index]])
 
@@ -379,7 +381,7 @@ class PEAR:
                     **self.mcts_config
                 )
                 mcts_validation.exploration = False
-                mcts_validation.number_of_simulations = 5
+                mcts_validation.number_of_simulations = mcts_steps
 
                 trace, _, _ = mcts_validation.sample_intervention(deterministic_actions=[[program_index, argument_index]])
                 env.agnostic = prev_agnostic_value
