@@ -5,7 +5,7 @@ README = (pathlib.Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="recourse-fare",
-    version="0.1.0",
+    version="2.1",
     description="lgorithmic Recourse with Reinforcement Learning and MCTS (Structured Machine Learning Lab)",
     long_description=README,
     long_description_content_type="text/markdown",
