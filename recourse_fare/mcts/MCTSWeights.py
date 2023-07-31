@@ -374,13 +374,21 @@ class MCTSWeights(MCTS):
                     return child
 
             if child.prior > 0.0:
-                q_val_action = compute_q_value(child, self.qvalue_temperature)
+                
+                current_q_val = compute_q_value(child, self.qvalue_temperature)
+                q_val_action = current_q_val
 
                 action_utility = (self.c_puct * child.prior * np.sqrt(node.visit_count)
                                   * (1.0 / (1.0 + child.visit_count)))
                 q_val_action += action_utility
 
-                q_val_action += self.action_cost_coeff * (self.gamma ** child.cost) * (self.gamma ** child.depth) * mcts_sigmoid(self.minimum_cost-child.cost)
+                # Add the action penalty only if it agrees with the q value. Namely, if a node is deemed not worth it (negative),
+                # it the q_val action needs to be also negative, otherwise positive. 
+                current_action_penalty = self.action_cost_coeff * (self.gamma ** child.cost) * (self.gamma ** child.depth) * mcts_sigmoid(self.minimum_cost-child.cost)
+                current_action_penalty = 0 if current_q_val <= 0 else current_action_penalty
+                #current_action_penalty = current_action_penalty if current_q_val > 0 else -current_action_penalty
+
+                q_val_action += current_action_penalty
 
                 if child.program_from_parent_index in repeated_actions:
                     q_val_action += self.action_duplicate_cost * np.exp(-(repeated_actions_penalty+1))
