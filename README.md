@@ -24,10 +24,30 @@ conda activate recourse_fare
 pip install -e .
 ```
 
-## References
+## How to cite
 
-We use the library in the following projects: 
+If you are using our library, please consider citing the following works:
 
-[1] De Toni, Giovanni, Bruno Lepri, and Andrea Passerini. "Synthesizing explainable counterfactual policies for algorithmic recourse with program synthesis." Machine Learning (2023): 1-21, [10.1007/s10994-022-06293-7](https://link.springer.com/article/10.1007/s10994-022-06293-7)
+```
+@article{
+    detoni2024personalized,
+    title={Personalized Algorithmic Recourse with Preference Elicitation},
+    author={Giovanni De Toni and Paolo Viappiani and Stefano Teso and Bruno Lepri and Andrea Passerini},
+    journal={Transactions on Machine Learning Research},
+    issn={2835-8856},
+    year={2024},
+    url={https://openreview.net/forum?id=8sg2I9zXgO},
+    note={}
+}
 
-[2] De Toni, Giovanni, et al. "User-Aware Algorithmic Recourse with Preference Elicitation." arXiv preprint arXiv:2205.13743 (2022), [2205.13743](https://arxiv.org/abs/2205.13743)
+@article{detoni2023synthesizing,
+  title={Synthesizing explainable counterfactual policies for algorithmic recourse with program synthesis},
+  author={De Toni, Giovanni and Lepri, Bruno and Passerini, Andrea},
+  journal={Machine Learning},
+  volume={112},
+  number={4},
+  pages={1389--1409},
+  year={2023},
+  publisher={Springer}
+}
+```
