@@ -2,7 +2,7 @@
 
 This library provides a set of methods which can be used to achieve model-agnostic algorithmic recourse given a black-box model. The library enables customization of all the aspects of the recourse process, from the actions available to the models employed.
 
-**If you want to have a gist of a practical application and how to use `recourse-fare`, please have a look at the following notebook [Tutorial: training FARE and E-FARE models on the Adult dataset](./recourse_fare/example/notebooks/train_fare_adult.ipynb)**
+**If you want to have a gist of a practical application and how to use `recourse-fare`, please have a look at the following notebook [Tutorial: training FARE and E-FARE models on the Adult dataset](https://github.com/unitn-sml/recourse-fare/blob/master/recourse_fare/example/notebooks/train_fare_adult.ipynb)**
 
 ## Install
 
